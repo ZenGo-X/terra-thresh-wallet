@@ -10,7 +10,6 @@ const {
   getTransactions,
   getTxInfo,
   getBalance,
-  mnemonic_transfer,
   getExchangeRate,
 } = require('../dist/src');
 

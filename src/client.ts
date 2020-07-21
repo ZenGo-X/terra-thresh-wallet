@@ -9,6 +9,8 @@ import {
   LCDClient,
   Wallet,
   MsgSend,
+  StdSignature,
+  StdTx,
 } from '@terra-money/terra.js';
 
 import {
@@ -52,7 +54,6 @@ export class TerraThreshSigClient {
   }
 
   public async transfer(
-    from: string,
     to: string,
     amount: string,
     denom: Denom,
@@ -61,25 +62,38 @@ export class TerraThreshSigClient {
     dryRun?: boolean,
   ) {
     const memo: string = (options && options.memo) || '';
+    console.log('sending from', this.terraWallet.key.accAddress);
 
-    console.log('memo=', memo);
+    if (denom == null) {
+      denom = 'uluna';
+    }
 
     const send = new MsgSend(this.terraWallet.key.accAddress, to, {
-      uluna: 1000,
+      denom: amount,
     });
 
-    const tx = await this.terraWallet.createAndSignTx({
+    const tx = await this.terraWallet.createTx({
       msgs: [send],
-      memo: 'Hello',
     });
+
+    let sigData = await this.terraWallet.key.sign(Buffer.from(tx.toJSON()));
+    let stdSig = StdSignature.fromData({
+      signature: sigData.toString('base64'),
+      pub_key: {
+        type: 'tendermint/PubKeySecp256k1',
+        value: this.terraWallet.key.publicKey.toString('base64'),
+      },
+    });
+
+    const stdTx = new StdTx(tx.msgs, tx.fee, [stdSig], tx.memo);
 
     if (dryRun) {
       console.log('------ Dry Run ----- ');
-      console.log(tx);
+      console.log(tx.toJSON());
     } else {
       console.log(' ===== Executing ===== ');
-      console.log(tx);
-      let resp = await this.terraWallet.lcd.tx.broadcast(tx);
+      console.log(tx.toJSON());
+      let resp = await this.terraWallet.lcd.tx.broadcast(stdTx);
       console.log(resp);
     }
   }
@@ -94,14 +108,20 @@ export class TerraThreshSigClient {
       chainID: 'soju-0014',
     });
 
+    // TODO: Ge pass the address and get the index of the address from hd
+
     const key = new ThreasholdKey(masterKeyShare, this.p2);
+    this.terraWallet = terraClient.wallet(key);
+
     // THIS IS WHERE WE NEED TO REPLACE WITH TREASHOLD KEY
-    const mk = new MnemonicKey({
-      mnemonic:
-        'addict achieve regret denial what title test tell fade test modify ship same torch blame general unit extend program dove few melody rack dry',
-    });
-    // this.terraWallet = terraClient.wallet(this.mk);
-    this.terraWallet = terraClient.wallet(mk);
+    // const mk = new MnemonicKey({
+    //   mnemonic:
+    //     'addict achieve regret denial what title test tell fade test modify ship same torch blame general unit extend program dove few melody rack dry',
+    // });
+    // console.log('Key Mnemonic', mk);
+    // this.terraWallet = terraClient.wallet(mk);
+    // console.log('Wallet Mnemonic', this.terraWallet);
+    // this.terraWallet = terraClient.wallet(mk);
   }
 
   private initDb() {
@@ -146,10 +166,13 @@ export class TerraThreshSigClient {
       this.p2,
       addressIndex,
     );
-    const addressString = address.accAddress;
-    const dbAddress = this.db.get('addresses').find({ addressString }).value();
+    const accAddress = address.accAddress;
+    const dbAddress = this.db.get('addresses').find({ accAddress }).value();
     if (!dbAddress) {
-      this.db.get('addresses').push({ address, index: addressIndex }).write();
+      this.db
+        .get('addresses')
+        .push({ accAddress, index: addressIndex })
+        .write();
     }
     return address.accAddress;
   }

@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@kzen-networks/thresh-sig": "^0.4.1",
-    "@terra-money/terra.js": "^0.4.6",
+    "@terra-money/terra.js": "file:../terra.js/",
     "@types/crypto-js": "^3.1.43",
     "@types/elliptic": "^6.4.10",
     "@types/lowdb": "^1.0.9",

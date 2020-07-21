@@ -29,10 +29,8 @@
     neon-cli "^0.2.0"
     rocksdb "^4.1.0"
 
-"@terra-money/terra.js@^0.4.6":
-  version "0.4.6"
-  resolved "https://registry.yarnpkg.com/@terra-money/terra.js/-/terra.js-0.4.6.tgz#cf49124565ccb7937bacbd6f493c812474bb1f3e"
-  integrity sha512-FuSU1xgaTJM7JpBh9EIqWmv/2OzhLECzUOdQwcIuWs/rbV5WRucNCVtqbXtYvIj/P523zp0TCRKtSZvewUoOJQ==
+"@terra-money/terra.js@file:../terra.js":
+  version "0.4.8"
   dependencies:
     axios "^0.19.2"
     bech32 "^1.1.3"
