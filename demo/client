@@ -42,7 +42,7 @@ program
     'Name of network ("soju", "vodka" or "columbus_2")',
   )
   .action(async (address, options) => {
-    await client.init();
+    await client.init(address);
     console.log(await client.getBalance(address, options.network || 'soju'));
   });
 
@@ -89,7 +89,7 @@ program
   .option('-dr, --dry_run', 'Print the tx without posting it')
   .option('-all, --all', 'Transfer all the coins of the specified currency')
   .action(async (from, to, amount, options) => {
-    await client.init();
+    await client.init(from);
     let sendOptions = {
       memo: options.memo,
       chainName: options.network,

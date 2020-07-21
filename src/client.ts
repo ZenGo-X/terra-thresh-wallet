@@ -122,11 +122,9 @@ export class TerraThreshSigClient {
     }
   }
 
-  public async init(
-    address: string,
-    path: string = `${CLIENT_DB_PATH}/db.json`,
-  ) {
+  public async init(accAddress?: string) {
     this.initDb();
+
     let masterKeyShare = await this.initMasterKey();
     this.p2MasterKeyShare = masterKeyShare;
 
@@ -135,18 +133,17 @@ export class TerraThreshSigClient {
       chainID: 'soju-0014',
     });
 
-    const key = new ThreasholdKey(masterKeyShare, this.p2);
-    this.terraWallet = terraClient.wallet(key);
+    let addressIndex = 0;
+    const addressObj: any = this.db
+      .get('addresses')
+      .find({ accAddress })
+      .value();
+    if (addressObj) {
+      addressIndex = addressObj.index;
+    }
 
-    // THIS IS WHERE WE NEED TO REPLACE WITH TREASHOLD KEY
-    // const mk = new MnemonicKey({
-    //   mnemonic:
-    //     'addict achieve regret denial what title test tell fade test modify ship same torch blame general unit extend program dove few melody rack dry',
-    // });
-    // console.log('Key Mnemonic', mk);
-    // this.terraWallet = terraClient.wallet(mk);
-    // console.log('Wallet Mnemonic', this.terraWallet);
-    // this.terraWallet = terraClient.wallet(mk);
+    const key = new ThreasholdKey(masterKeyShare, this.p2, addressIndex);
+    this.terraWallet = terraClient.wallet(key);
   }
 
   private initDb() {
@@ -210,8 +207,3 @@ function ensureDirSync(dirpath: string) {
     if (err.code !== 'EEXIST') throw err;
   }
 }
-
-// function getAmountOfDenom(balanceResult: Balance, denom: Denom): string {
-//   const value = balanceResult.result.find((res) => res.denom === denom);
-//   return value ? value.amount : '';
-// }
