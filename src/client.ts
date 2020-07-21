@@ -11,6 +11,8 @@ import {
   MsgSend,
   StdSignature,
   StdTx,
+  Coin,
+  Coins,
 } from '@terra-money/terra.js';
 
 import {
@@ -36,7 +38,6 @@ type SendOptions = {
 export class TerraThreshSigClient {
   private mainnet: boolean;
   private db: any;
-  private mk: Key;
   private p2: Party2;
   private p2MasterKeyShare: Party2Share;
   private terraWallet: Wallet;
@@ -45,9 +46,9 @@ export class TerraThreshSigClient {
     this.p2 = new Party2(P1_ENDPOINT);
   }
 
-  public async getBalance(address: string): Promise<any> {
+  public async getBalance(address?: string): Promise<Coins> {
     if (address == null) {
-      address = this.mk.accAddress;
+      address = this.terraWallet.key.accAddress;
     }
     return this.terraWallet.lcd.bank.balance(address);
     //return get(chainName, `/bank/balances/${address}`);
@@ -67,16 +68,38 @@ export class TerraThreshSigClient {
     if (denom == null) {
       denom = 'uluna';
     }
+    let coin = new Coin(denom, amount);
+    let coins = new Coins([coin]);
 
-    const send = new MsgSend(this.terraWallet.key.accAddress, to, {
-      denom: amount,
-    });
+    let send = new MsgSend(this.terraWallet.key.accAddress, to, coins);
 
-    const tx = await this.terraWallet.createTx({
+    // Create tx with fees and amounts
+    let tx = await this.terraWallet.createTx({
       msgs: [send],
     });
 
+    if (sendAll) {
+      const balance = await this.getBalance();
+
+      coins = balance.filter((res) => res.denom === denom);
+
+      console.log('Initial amout', coins);
+      const fee = await this.terraWallet.lcd.tx.estimateFee(tx);
+      console.log('Fee coin', fee.amount);
+      let amountSubFee = coins.sub(fee.amount);
+      console.log('Amount sub fee', amountSubFee);
+
+      send = new MsgSend(this.terraWallet.key.accAddress, to, amountSubFee);
+      tx = await this.terraWallet.createTx({
+        msgs: [send],
+        fee: fee,
+      });
+    }
+
+    // Sign the raw tx data
     let sigData = await this.terraWallet.key.sign(Buffer.from(tx.toJSON()));
+
+    // Createa a sig+public key object
     let stdSig = StdSignature.fromData({
       signature: sigData.toString('base64'),
       pub_key: {
@@ -85,6 +108,7 @@ export class TerraThreshSigClient {
       },
     });
 
+    // Combined message for broadcasting
     const stdTx = new StdTx(tx.msgs, tx.fee, [stdSig], tx.memo);
 
     if (dryRun) {
@@ -98,7 +122,10 @@ export class TerraThreshSigClient {
     }
   }
 
-  public async init(path: string = `${CLIENT_DB_PATH}/db.json`) {
+  public async init(
+    address: string,
+    path: string = `${CLIENT_DB_PATH}/db.json`,
+  ) {
     this.initDb();
     let masterKeyShare = await this.initMasterKey();
     this.p2MasterKeyShare = masterKeyShare;
@@ -107,8 +134,6 @@ export class TerraThreshSigClient {
       URL: 'https://soju-lcd.terra.dev',
       chainID: 'soju-0014',
     });
-
-    // TODO: Ge pass the address and get the index of the address from hd
 
     const key = new ThreasholdKey(masterKeyShare, this.p2);
     this.terraWallet = terraClient.wallet(key);
@@ -185,3 +210,8 @@ function ensureDirSync(dirpath: string) {
     if (err.code !== 'EEXIST') throw err;
   }
 }
+
+// function getAmountOfDenom(balanceResult: Balance, denom: Denom): string {
+//   const value = balanceResult.result.find((res) => res.denom === denom);
+//   return value ? value.amount : '';
+// }

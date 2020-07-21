@@ -96,10 +96,9 @@ program
       feeDenom: options.feedenom,
     };
     await client.transfer(
-      from,
       to,
       amount,
-      options.denom || 'luna',
+      options.denom || 'uluna',
       sendOptions,
       options.all,
       options.dry_run,
