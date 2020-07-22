@@ -78,23 +78,29 @@ export class TerraThreshSigClient {
       msgs: [send],
     });
 
+    const gasPriceCoin = new Coin(denom, 0.015);
+    const gasPriceCoins = new Coins([gasPriceCoin]);
+
+    const fee = await this.terraWallet.lcd.tx.estimateFee(tx, {
+      gasPrices: gasPriceCoins,
+    });
+    console.log('Fee coin', fee.amount);
+
     if (sendAll) {
       const balance = await this.getBalance();
 
       coins = balance.filter((res) => res.denom === denom);
 
       console.log('Initial amout', coins);
-      const fee = await this.terraWallet.lcd.tx.estimateFee(tx);
-      console.log('Fee coin', fee.amount);
       let amountSubFee = coins.sub(fee.amount);
       console.log('Amount sub fee', amountSubFee);
 
       send = new MsgSend(this.terraWallet.key.accAddress, to, amountSubFee);
-      tx = await this.terraWallet.createTx({
-        msgs: [send],
-        fee: fee,
-      });
     }
+    tx = await this.terraWallet.createTx({
+      msgs: [send],
+      fee: fee,
+    });
 
     // Sign the raw tx data
     let sigData = await this.terraWallet.key.sign(Buffer.from(tx.toJSON()));
@@ -129,8 +135,11 @@ export class TerraThreshSigClient {
     this.p2MasterKeyShare = masterKeyShare;
 
     const terraClient = new LCDClient({
-      URL: 'https://soju-lcd.terra.dev',
-      // URL: 'http://52.78.69.160:1317',
+      // URL: 'https://lcd.terra.dev', // public node columbus_3
+      // URL: 'http://52.78.43.42:1317', // private node columbus_3
+      // chainID: 'columbus_3',
+      // URL: 'https://soju-lcd.terra.dev' // public node soju
+      URL: 'http://52.78.69.160:1317', //private node soju
       chainID: 'soju-0014',
     });
 

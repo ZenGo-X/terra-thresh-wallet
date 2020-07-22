@@ -28,7 +28,8 @@
     "node-fetch": "^2.6.0",
     "request": "^2.88.0",
     "request-promise": "^4.2.5",
-    "secp256k1": "^4.0.1"
+    "secp256k1": "^4.0.1",
+    "ws": "^7.3.1"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^2.17.0",
