@@ -130,6 +130,7 @@ export class TerraThreshSigClient {
 
     const terraClient = new LCDClient({
       URL: 'https://soju-lcd.terra.dev',
+      // URL: 'http://52.78.69.160:1317',
       chainID: 'soju-0014',
     });
 

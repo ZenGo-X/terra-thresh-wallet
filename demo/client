@@ -62,14 +62,10 @@ program
 
 program
   .command('transactions')
-  .option(
-    '-a --action <action>',
-    'transaction side, Allowed values: [send, receive]',
-  )
-  .option('-s --sender <sender>', 'Sender address')
+  .option('-a --account <account>', 'Account address')
   .option('-p --page <page>', 'Page number')
   .option('-l --limit <limit>', 'Page limit')
-  .option('-n, --network [name]', 'Name of network ("soju" or "columbus_2")')
+  .option('-n, --network [name]', 'Name of network ("soju" or "columbus-3')
   .action(async (options) => {
     const txs = await getTransactions(options);
     console.log(JSON.stringify(txs, null, 2));
