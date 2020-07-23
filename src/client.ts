@@ -65,6 +65,10 @@ export class TerraThreshSigClient {
     const memo: string = (options && options.memo) || '';
     console.log('sending from', this.terraWallet.key.accAddress);
 
+    if (sendAll) {
+      // Place holder so that gas esitmation will not fail
+      amount = '1';
+    }
     if (denom == null) {
       denom = 'uluna';
     }
@@ -87,6 +91,7 @@ export class TerraThreshSigClient {
     console.log('Fee coin', fee.amount);
 
     if (sendAll) {
+      // TODO fail sending if gas is more that balance
       const balance = await this.getBalance();
 
       coins = balance.filter((res) => res.denom === denom);
@@ -124,7 +129,7 @@ export class TerraThreshSigClient {
       console.log(' ===== Executing ===== ');
       console.log(tx.toJSON());
       let resp = await this.terraWallet.lcd.tx.broadcast(stdTx);
-      console.log(resp);
+      return resp;
     }
   }
 

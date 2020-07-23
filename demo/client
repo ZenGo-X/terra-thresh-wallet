@@ -91,7 +91,7 @@ program
       chainName: options.network,
       feeDenom: options.feedenom,
     };
-    await client.transfer(
+    let res = await client.transfer(
       to,
       amount,
       options.denom || 'uluna',
@@ -99,6 +99,7 @@ program
       options.all,
       options.dry_run,
     );
+    console.log('Result', res);
   });
 
 program.parse(process.argv);
