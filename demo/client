@@ -9,8 +9,7 @@ const CLIENT_DB_PATH = path.join(__dirname, 'client-db');
 const {
   getTransactions,
   getTxInfo,
-  getBalance,
-  getExchangeRate,
+  getSwapRates,
   addressGenerator,
 } = require('../dist/src');
 
@@ -40,7 +39,7 @@ program
   .command('balance <address>')
   .option(
     '-n, --network [name]',
-    'Name of network ("soju", "vodka" or "columbus_2")',
+    'Name of network ("soju", "vodka" or "columbus_3")',
   )
   .action(async (address, options) => {
     await client.init(address);
@@ -49,9 +48,15 @@ program
 
 program
   .command('rates')
-  .option('-n, --network [name]', 'Name of network ("soju" or "columbus_2")')
+  .option(
+    '-d, --denom [symbol]',
+    'denomination of the transfer ("uluna" default, "uusd", ...)',
+  )
+  .option('-n, --network [name]', 'Name of network ("soju" or "columbus_3")')
   .action(async (options) => {
-    console.log(await getExchangeRate(options.network || 'soju'));
+    console.log(
+      await getSwapRates(options.denom || 'uluna', options.network || 'soju'),
+    );
   });
 
 program.command('generate').action(() => {
@@ -60,7 +65,7 @@ program.command('generate').action(() => {
 
 program
   .command('tx_info <txhash>')
-  .option('-n, --network [name]', 'Name of network ("soju" or "columbus_2")')
+  .option('-n, --network [name]', 'Name of network ("soju" or "columbus_3")')
   .action(async (txhash, options) => {
     console.log(await getTxInfo(txhash, options.network || 'soju'));
   });
@@ -86,7 +91,7 @@ program
     '-fd, --feedenom [symbol]',
     'denomination of the fee ("luna" default, "usd", ...)',
   )
-  .option('-n, --network [name]', 'Name of network ("soju" or "columbus_2")')
+  .option('-n, --network [name]', 'Name of network ("soju" or "columbus_3")')
   .option('-dr, --dry_run', 'Print the tx without posting it')
   .option('-all, --all', 'Transfer all the coins of the specified currency')
   .action(async (from, to, amount, options) => {

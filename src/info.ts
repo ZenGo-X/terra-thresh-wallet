@@ -7,6 +7,13 @@ export async function getTxInfo(
   return get(chainName, `/tx/${txHash}`);
 }
 
+export async function getSwapRates(
+  denom: string,
+  chainName: ChainName,
+): Promise<any> {
+  return get(chainName, `/market/swaprate/${denom}`);
+}
+
 interface GetTransactionsOptions {
   account?: string;
   receiver?: string;
