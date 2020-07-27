@@ -87,10 +87,6 @@ program
     '-d, --denom [symbol]',
     'denomination of the transfer ("luna" default, "usd", ...)',
   )
-  .option(
-    '-fd, --feedenom [symbol]',
-    'denomination of the fee ("luna" default, "usd", ...)',
-  )
   .option('-n, --network [name]', 'Name of network ("soju" or "columbus_3")')
   .option('-dr, --dry_run', 'Print the tx without posting it')
   .option('-all, --all', 'Transfer all the coins of the specified currency')
@@ -99,7 +95,6 @@ program
     let sendOptions = {
       memo: options.memo,
       chainName: options.network,
-      feeDenom: options.feedenom,
     };
     let res = await client.transfer(
       to,
@@ -107,6 +102,30 @@ program
       options.denom || 'uluna',
       sendOptions,
       options.all,
+      options.dry_run,
+    );
+    console.log('Result', res);
+  });
+
+program
+  .command('swap <from> <amount> <ask>')
+  .option(
+    '-d, --denom [symbol]',
+    'denomination of the transfer ("luna" default, "usd", ...)',
+  )
+  .option('-n, --network [name]', 'Name of network ("soju" or "columbus_3")')
+  .option('-dr, --dry_run', 'Print the tx without posting it')
+  .action(async (from, amount, ask, options) => {
+    await client.init(from);
+    let sendOptions = {
+      memo: options.memo,
+      chainName: options.network,
+    };
+    let res = await client.swap(
+      amount,
+      options.denom || 'uluna',
+      options.ask || 'uusd',
+      sendOptions,
       options.dry_run,
     );
     console.log('Result', res);

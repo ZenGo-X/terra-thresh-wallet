@@ -9,6 +9,7 @@ import {
   LCDClient,
   Wallet,
   MsgSend,
+  MsgSwap,
   StdSignature,
   StdTx,
   StdFee,
@@ -53,6 +54,32 @@ export class TerraThreshSigClient {
     }
     return this.terraWallet.lcd.bank.balance(address);
     //return get(chainName, `/bank/balances/${address}`);
+  }
+
+  public async swap(
+    amount: string,
+    denom: Denom,
+    ask: Denom,
+    options?: SendOptions,
+    dryRun?: boolean,
+  ) {
+    let offer = new Coin(denom, amount);
+
+    const msg = new MsgSwap(this.terraWallet.key.accAddress, offer, ask);
+
+    const tx = await this.terraWallet.createAndSignTx({
+      msgs: [msg],
+    });
+
+    if (dryRun) {
+      console.log('------ Dry Run ----- ');
+      console.log(tx.toJSON());
+    } else {
+      console.log(' ===== Executing ===== ');
+      console.log(tx.toJSON());
+      let resp = await this.terraWallet.lcd.tx.broadcast(tx);
+      return resp;
+    }
   }
 
   public async transfer(
