@@ -11,6 +11,7 @@ const {
   getTxInfo,
   getBalance,
   getExchangeRate,
+  addressGenerator,
 } = require('../dist/src');
 
 const { TerraThreshSigClient } = require('../dist/src');
@@ -52,6 +53,10 @@ program
   .action(async (options) => {
     console.log(await getExchangeRate(options.network || 'soju'));
   });
+
+program.command('generate').action(() => {
+  addressGenerator();
+});
 
 program
   .command('tx_info <txhash>')

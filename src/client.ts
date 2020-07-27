@@ -11,6 +11,7 @@ import {
   MsgSend,
   StdSignature,
   StdTx,
+  StdFee,
   Coin,
   Coins,
 } from '@terra-money/terra.js';
@@ -63,7 +64,7 @@ export class TerraThreshSigClient {
     dryRun?: boolean,
   ) {
     const memo: string = (options && options.memo) || '';
-    console.log('sending from', this.terraWallet.key.accAddress);
+    //console.log('sending from', this.terraWallet.key.accAddress);
 
     if (sendAll) {
       // Place holder so that gas esitmation will not fail
@@ -77,31 +78,59 @@ export class TerraThreshSigClient {
 
     let send = new MsgSend(this.terraWallet.key.accAddress, to, coins);
 
+    const gasPriceCoin = new Coin(denom, 0.015);
+    const gasPriceCoins = new Coins([gasPriceCoin]);
+    console.log('gasPriceCoins', gasPriceCoins);
+
     // Create tx with fees and amounts
     let tx = await this.terraWallet.createTx({
       msgs: [send],
+      fee: new StdFee(1, new Coins([new Coin(denom, 1)])),
     });
 
-    const gasPriceCoin = new Coin(denom, 0.015);
-    const gasPriceCoins = new Coins([gasPriceCoin]);
-
-    const fee = await this.terraWallet.lcd.tx.estimateFee(tx, {
+    // Actual right way to calculate fees
+    let fee = await this.terraWallet.lcd.tx.estimateFee(tx, {
       gasPrices: gasPriceCoins,
     });
+    console.log('Tx', tx.toJSON());
+    console.log('GasPriceCoin', gasPriceCoins.toJSON());
     console.log('Fee coin', fee.amount);
 
     if (sendAll) {
       // TODO fail sending if gas is more that balance
       const balance = await this.getBalance();
 
-      coins = balance.filter((res) => res.denom === denom);
+      const balanceCoins = balance.filter((res) => res.denom === denom);
 
       console.log('Initial amout', coins);
-      let amountSubFee = coins.sub(fee.amount);
+      let amountSubFee = balanceCoins.sub(fee.amount);
       console.log('Amount sub fee', amountSubFee);
+
+      // For tokens other than LUNA, an additional stablity tax is payed
+      if (denom != 'uluna') {
+        // Tax rate per token sent
+        const taxRate = await this.terraWallet.lcd.treasury.taxRate();
+        // Cap on max tax per transactions
+        const taxCap = await this.terraWallet.lcd.treasury.taxCap(denom);
+        const taxCapAmount = Number(taxCap.toData().amount);
+        // Get amount to be sent without tax
+        let taxedAmount = amountSubFee.get(denom)?.toData().amount;
+        // Take the min between the max tax and the tax for tx
+        let taxToPay = Math.floor(
+          Math.min(taxCapAmount, Number(taxRate) * Number(taxedAmount)),
+        );
+
+        let taxCoin = new Coin(denom, taxToPay);
+        // Subtract tax from the payed amount
+        amountSubFee = amountSubFee.sub(taxCoin);
+        // Add tax to the fee to be payed
+        fee = new StdFee(fee.gas, fee.amount.add(taxCoin));
+      }
 
       send = new MsgSend(this.terraWallet.key.accAddress, to, amountSubFee);
     }
+
+    // Create a new Tx with propper gas estimation
     tx = await this.terraWallet.createTx({
       msgs: [send],
       fee: fee,
@@ -220,5 +249,12 @@ function ensureDirSync(dirpath: string) {
     fs.mkdirSync(dirpath, { recursive: true });
   } catch (err) {
     if (err.code !== 'EEXIST') throw err;
+  }
+}
+
+export function addressGenerator() {
+  for (let i = 0; i < 1000; i++) {
+    const mk = new MnemonicKey();
+    console.log('"' + mk.accAddress + '",');
   }
 }
