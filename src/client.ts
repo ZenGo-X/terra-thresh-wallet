@@ -80,7 +80,7 @@ export class TerraThreshSigClient {
 
     const gasPriceCoin = new Coin(denom, 0.015);
     const gasPriceCoins = new Coins([gasPriceCoin]);
-    console.log('gasPriceCoins', gasPriceCoins);
+    // console.log('gasPriceCoins', gasPriceCoins);
 
     // Create tx with fees and amounts
     let tx = await this.terraWallet.createTx({
@@ -92,9 +92,9 @@ export class TerraThreshSigClient {
     let fee = await this.terraWallet.lcd.tx.estimateFee(tx, {
       gasPrices: gasPriceCoins,
     });
-    console.log('Tx', tx.toJSON());
-    console.log('GasPriceCoin', gasPriceCoins.toJSON());
-    console.log('Fee coin', fee.amount);
+    // console.log('Tx', tx.toJSON());
+    // console.log('GasPriceCoin', gasPriceCoins.toJSON());
+    // console.log('Fee coin', fee.amount);
 
     if (sendAll) {
       // TODO fail sending if gas is more that balance
@@ -102,9 +102,9 @@ export class TerraThreshSigClient {
 
       const balanceCoins = balance.filter((res) => res.denom === denom);
 
-      console.log('Initial amout', coins);
+      // console.log('Initial amout', coins);
       let amountSubFee = balanceCoins.sub(fee.amount);
-      console.log('Amount sub fee', amountSubFee);
+      // console.log('Amount sub fee', amountSubFee);
 
       // For tokens other than LUNA, an additional stablity tax is payed
       if (denom != 'uluna') {
@@ -113,7 +113,7 @@ export class TerraThreshSigClient {
         // Cap on max tax per transactions
         const taxCap = await this.terraWallet.lcd.treasury.taxCap(denom);
         const taxCapAmount = Number(taxCap.toData().amount);
-        // Get amount to be sent without tax
+        // Subtract known fees from amount to be sent
         let taxedAmount = amountSubFee.get(denom)?.toData().amount;
         // Take the min between the max tax and the tax for tx
         let taxToPay = Math.floor(
@@ -126,7 +126,7 @@ export class TerraThreshSigClient {
         // Add tax to the fee to be payed
         fee = new StdFee(fee.gas, fee.amount.add(taxCoin));
       }
-
+      // Create a new message with adjusted amount
       send = new MsgSend(this.terraWallet.key.accAddress, to, amountSubFee);
     }
 
