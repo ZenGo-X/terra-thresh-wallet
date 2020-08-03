@@ -9,14 +9,12 @@ const assert = require('assert');
 
 const client = new TerraThreshSigClient();
 
-const network = 'soju';
-
 // This address must be configured with both uluna and uusd, ukrw
 const bank = {
   address: 'terra1xpjtwmemdwz053q4jxjx0ht4dtp25rc799deyf',
 };
 
-// This is only for receiving
+// This is only for receiving, it can have any balance
 const sinkAccount = {
   address: 'terra1ya82k8ywtgd7yq8tndf0sejgqd58r66pw5em59',
 };
@@ -26,7 +24,7 @@ const emptyAccount = {
   address: 'terra1teqqprrnw5mx8mx8pn5hnx3v5jrxkcj2c3356q',
 };
 
-// This address should be empty of any tokens at start of testing
+// And address with uusd tokens and not uluna, it can have any balance
 const uusdOnlyAccount = {
   address: 'terra1efhd0j476zznhq4c2czjyfnyufjxt8rc7fqxpj',
 };

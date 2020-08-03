@@ -28,7 +28,7 @@ function ensureDirSync(dirpath) {
 
 program
   .command('address')
-  .option('-i, --index <index>', 'Address index')
+  .option('-i, --index [index]', 'Address index')
   .action(async (options) => {
     await client.init();
     const address = client.getAddress(options.index);
@@ -37,10 +37,7 @@ program
 
 program
   .command('balance <address>')
-  .option(
-    '-n, --network [name]',
-    'Name of network ("soju", "vodka" or "columbus_3")',
-  )
+  .option('-n, --network [name]', 'Name of network ("soju", "columbus_3")')
   .action(async (address, options) => {
     await client.init(address);
     console.log(await client.getBalance(address, options.network || 'soju'));
