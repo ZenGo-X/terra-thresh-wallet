@@ -1,6 +1,6 @@
 # Terra Threshold Wallet
 
-Cosmos wallet powered by two-party ECDSA.
+Terra wallet powered by two-party ECDSA.
 
 **WIP!! Use at your own risk**
 
