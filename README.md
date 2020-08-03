@@ -34,35 +34,99 @@ Client:
 
 ```sh
 Usage: client [options] [command]
-
-Options:
-  -h, --help                                                                 output usage information
-
-Commands:
-  address [options]
-  balance [options] <address>
-  tx_info [options] <txhash>
-  transactions [options]
-  transfer [options] <from> <to> <amount>
 ```
 
 - Start by generating a new address.
 - Populate the address with coins from testnet [faucet](https://faucet.terra.money)
 
-### Additional commands
+### Commands:
 
-```sh
-Usage: client [options] [command]
+Print an existing address or generate a new one
 
-Options:
-  -h, --help                                                                 output usage information
-
-Commands:
+```
   address [options]
-  balance [options] <address>
-  tx_info [options] <txhash>
-  transactions [options]
-  transfer [options] <from> <to> <amount>
+```
+
+Example
+
+```
+./demo/lient address --index 1
+```
+
+Print balance of address
+
+```
+balance [options] <address>
+```
+
+Example
+
+```
+./demo/lient balance terra1efhd0j476zznhq4c2czjyfnyufjxt8rc7fqxpj
+```
+
+Trasnfer an <amount> of [denom] from address <from> to address <to>
+Add `--dry_run` to generate the trnasaction without executing  
+Add `--all` to send all currency in specified denom
+
+```
+transfer [options] <from> <to> <amount>
+```
+
+Example
+
+```
+./demo/client transfer terra1xpjtwmemdwz053q4jxjx0ht4dtp25rc799deyf terra1qrkvv8dwc946cltuuqkd09r6yh0z3a30x3umxx 1000 --denom uusd --all --dry_run
+```
+
+Get info on transaction hash
+
+```
+tx_info [options] <txhash>
+```
+
+Example
+
+```
+./demo/client tx_info A84D7AEFD5D3CC6906A80BA6D67E6DC1098345CF094B2A61648DD553117D03B6
+```
+
+Get all transactions for a specifed account
+
+```
+transactions [options]
+```
+
+Example
+
+```
+./demo/client transactions --account terra1xpjtwmemdwz053q4jxjx0ht4dtp25rc799deyf
+```
+
+### Additional commands (Future stages)
+
+Get exchange rates of tokens to others
+
+```
+ rates [options]
+```
+
+Example
+
+```
+./demo/client rates --denom uusd
+```
+
+Swap <amount> of a token [denom] from address <from> for another token <ask>
+
+```
+  swap [options] <from> <amount> <ask>
+```
+
+Example
+
+```
+./demo/client swap terra1xpjtwmemdwz053q4jxjx0ht4dtp25rc799deyf 1000 --denom uluna uusd
 ```
 
 ## Testing
