@@ -1,6 +1,8 @@
-import { DEFULT_GAS_PRICE, DEFAULT_GAS_COEFFICIENT, Denom } from './constants';
-import { ThreasholdKey } from './threasholdKey';
+import assert from 'assert';
 import path from 'path';
+
+import { DEFULT_GAS_PRICE } from './constants';
+import { ThreasholdKey } from './threasholdKey';
 
 import {
   Key,
@@ -15,6 +17,7 @@ import {
   StdFee,
   Coin,
   Coins,
+  Denom,
 } from '@terra-money/terra.js';
 
 import {
@@ -53,7 +56,6 @@ export class TerraThreshSigClient {
       address = this.terraWallet.key.accAddress;
     }
     return this.terraWallet.lcd.bank.balance(address);
-    //return get(chainName, `/bank/balances/${address}`);
   }
 
   public async swap(
@@ -82,6 +84,19 @@ export class TerraThreshSigClient {
     }
   }
 
+  private async checkEnoughBalance(
+    amount: string,
+    denom: Denom,
+  ): Promise<Coins> {
+    const balance = await this.getBalance();
+    const balanceCoins = balance.filter((res) => res.denom === denom);
+    assert(
+      Number(amount) < Number(balanceCoins.get(denom)?.toData().amount),
+      'Not enough balance',
+    );
+    return balance;
+  }
+
   public async transfer(
     to: string,
     amount: string,
@@ -90,48 +105,47 @@ export class TerraThreshSigClient {
     sendAll?: boolean,
     dryRun?: boolean,
   ) {
-    const memo: string = (options && options.memo) || '';
-    //console.log('sending from', this.terraWallet.key.accAddress);
-
+    // For sending all, set the amount to the minimum, so that gas estimation works properly
     if (sendAll) {
-      // Place holder so that gas esitmation will not fail
+      // Place holder so that gas estimation will not fail
       amount = '1';
     }
+    // Optionally add a memo the transaction
+    const memo: string = (options && options.memo) || '';
+    const balance = await this.checkEnoughBalance(amount, denom);
+
+    // Set default denom to luna
     if (denom == null) {
       denom = 'uluna';
     }
+
+    //
     let coin = new Coin(denom, amount);
     let coins = new Coins([coin]);
 
-    let send = new MsgSend(this.terraWallet.key.accAddress, to, coins);
-
-    const gasPriceCoin = new Coin(denom, 0.015);
+    const gasPriceCoin = new Coin(denom, DEFULT_GAS_PRICE);
     const gasPriceCoins = new Coins([gasPriceCoin]);
-    // console.log('gasPriceCoins', gasPriceCoins);
+
+    let send = new MsgSend(this.terraWallet.key.accAddress, to, coins);
 
     // Create tx with fees and amounts
     let tx = await this.terraWallet.createTx({
       msgs: [send],
-      fee: new StdFee(1, new Coins([new Coin(denom, 1)])),
-    });
-
-    // Actual right way to calculate fees
-    let fee = await this.terraWallet.lcd.tx.estimateFee(tx, {
       gasPrices: gasPriceCoins,
     });
-    // console.log('Tx', tx.toJSON());
-    // console.log('GasPriceCoin', gasPriceCoins.toJSON());
-    // console.log('Fee coin', fee.amount);
+
+    // Simulate tx fee
+    let fee = await this.terraWallet.lcd.tx.estimateFee(tx);
+
+    const balanceCoins = balance.filter((res) => res.denom === denom);
+    assert(
+      Number(fee.amount.get(denom)?.toData().amount) + Number(amount) <=
+        Number(balanceCoins.get(denom)?.toData().amount),
+      'Not enough balance to cover the fees',
+    );
 
     if (sendAll) {
-      // TODO fail sending if gas is more that balance
-      const balance = await this.getBalance();
-
-      const balanceCoins = balance.filter((res) => res.denom === denom);
-
-      // console.log('Initial amout', coins);
       let amountSubFee = balanceCoins.sub(fee.amount);
-      // console.log('Amount sub fee', amountSubFee);
 
       // For tokens other than LUNA, an additional stablity tax is payed
       if (denom != 'uluna') {
@@ -237,6 +251,9 @@ export class TerraThreshSigClient {
     return this.restoreOrGenerateMasterKey();
   }
 
+  /**
+   *
+   */
   private async restoreOrGenerateMasterKey(): Promise<Party2Share> {
     const p2MasterKeyShare = this.db.get('mkShare').value();
     if (p2MasterKeyShare) {
