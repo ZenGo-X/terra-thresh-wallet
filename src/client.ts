@@ -58,6 +58,13 @@ export class TerraThreshSigClient {
     return this.terraWallet.lcd.bank.balance(address);
   }
 
+  /**
+   * Transfer tokens to address
+   * @param amount Amount of tokens to swa in u<Token>  == <Token> * 1e6
+   * @param denom Denomination of tokens to use. One of uluna, uusd, ukrw etc.
+   * @param ask Denom of tokens to received. One of uluna, uusd, ukrw
+   * @param dryRun Create trasnsaction but do not broadcast
+   */
   public async swap(
     amount: string,
     denom: Denom,
@@ -67,8 +74,10 @@ export class TerraThreshSigClient {
   ) {
     let offer = new Coin(denom, amount);
 
+    // This is an example of creating a transaction without breaking down to stesp
     const msg = new MsgSwap(this.terraWallet.key.accAddress, offer, ask);
 
+    // This is
     const tx = await this.terraWallet.createAndSignTx({
       msgs: [msg],
     });
@@ -84,6 +93,10 @@ export class TerraThreshSigClient {
     }
   }
 
+  /**
+   * Checks that the account has at least as much balance as requested by transaction
+   * Returns balance in Coins for future use
+   */
   private async checkEnoughBalance(
     amount: string,
     denom: Denom,
@@ -97,6 +110,15 @@ export class TerraThreshSigClient {
     return balance;
   }
 
+  /**
+   * Transfer tokens to address
+   * @param to  address to send tokens to
+   * @param amount Amount of tokens to send in u<Token>  == <Token> * 1e6
+   * @param denom Denomination of tokens to use. One of uluna, uusd, ukrw etc.
+   * @param options Optional memo and different gas fees
+   * @param sendAll Use special logic to send all tokens of specified denom
+   * @param dryRun Create trasnsaction but do not broadcast
+   */
   public async transfer(
     to: string,
     amount: string,
@@ -114,37 +136,48 @@ export class TerraThreshSigClient {
     const memo: string = (options && options.memo) || '';
     const balance = await this.checkEnoughBalance(amount, denom);
 
-    // Set default denom to luna
+    // Set default denom to uluna
     if (denom == null) {
       denom = 'uluna';
     }
 
-    //
+    // Coins for amount
     let coin = new Coin(denom, amount);
     let coins = new Coins([coin]);
 
+    // Coins for gas fees
     const gasPriceCoin = new Coin(denom, DEFULT_GAS_PRICE);
     const gasPriceCoins = new Coins([gasPriceCoin]);
 
     let send = new MsgSend(this.terraWallet.key.accAddress, to, coins);
 
-    // Create tx with fees and amounts
+    // Create tx
+    // This also estimates the initial fees
     let tx = await this.terraWallet.createTx({
       msgs: [send],
       gasPrices: gasPriceCoins,
     });
 
-    // Simulate tx fee
-    let fee = await this.terraWallet.lcd.tx.estimateFee(tx);
+    // Extract estimated fee
+    let fee = tx.fee;
 
+    // Covernt balance to Coins in relevant denom
     const balanceCoins = balance.filter((res) => res.denom === denom);
+
+    // console.log('Amount', amount);
+    // console.log('Fees', fee.amount.get(denom)?.toData().amount);
+    // console.log('Balance', Number(balanceCoins.get(denom)?.toData().amount));
+
+    // Make sure the fees + amount are sufficient
     assert(
       Number(fee.amount.get(denom)?.toData().amount) + Number(amount) <=
         Number(balanceCoins.get(denom)?.toData().amount),
       'Not enough balance to cover the fees',
     );
 
+    // Special care for sending all
     if (sendAll) {
+      // Deduct fees from the balance of tokens
       let amountSubFee = balanceCoins.sub(fee.amount);
 
       // For tokens other than LUNA, an additional stablity tax is payed
@@ -169,14 +202,17 @@ export class TerraThreshSigClient {
       }
       // Create a new message with adjusted amount
       send = new MsgSend(this.terraWallet.key.accAddress, to, amountSubFee);
+
+      // Create a new Tx with the updates fees
+      tx = await this.terraWallet.createTx({
+        msgs: [send],
+        fee: fee,
+      });
     }
+    ////////////////////// Siging and broadcasting is split into steps ////////////////
+    // Step 1: creating the trasnsaction (done)
 
-    // Create a new Tx with propper gas estimation
-    tx = await this.terraWallet.createTx({
-      msgs: [send],
-      fee: fee,
-    });
-
+    // Step 2: Signing the message
     // Sign the raw tx data
     let sigData = await this.terraWallet.key.sign(Buffer.from(tx.toJSON()));
 
@@ -189,9 +225,10 @@ export class TerraThreshSigClient {
       },
     });
 
-    // Combined message for broadcasting
+    // Create message + signature for boradcasting
     const stdTx = new StdTx(tx.msgs, tx.fee, [stdSig], tx.memo);
 
+    // Step 3: Broadcasting the message
     if (dryRun) {
       console.log('------ Dry Run ----- ');
       console.log(tx.toJSON());
@@ -203,6 +240,10 @@ export class TerraThreshSigClient {
     }
   }
 
+  /**
+   * Initiate the client
+   * @param accAddress Address to use for wallet generation. Optional. Otherwise uses index 0
+   */
   public async init(accAddress?: string) {
     this.initDb();
 
@@ -252,7 +293,7 @@ export class TerraThreshSigClient {
   }
 
   /**
-   *
+   * Fetch the share from the database or create a new share with the server
    */
   private async restoreOrGenerateMasterKey(): Promise<Party2Share> {
     const p2MasterKeyShare = this.db.get('mkShare').value();
@@ -300,6 +341,7 @@ function ensureDirSync(dirpath: string) {
   }
 }
 
+// Create many terra addresses (for stress testing)
 export function addressGenerator() {
   for (let i = 0; i < 70000; i++) {
     const mk = new MnemonicKey();
