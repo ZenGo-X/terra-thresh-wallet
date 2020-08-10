@@ -104,7 +104,7 @@ Example
 ./demo/client transactions --account terra1xpjtwmemdwz053q4jxjx0ht4dtp25rc799deyf
 ```
 
-### Additional commands (Future stages)
+### Advanced functionality 
 
 ##### Get exchange rates of tokens to others
 
