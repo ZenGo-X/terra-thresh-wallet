@@ -184,6 +184,9 @@ Optionally, run a terra rest-server in another terminal
 terracli rest-server --chain-id=soju-0014     --laddr=tcp://0.0.0.0:1317     --node tcp://localhost:26657     --trust-node=false
 ```
 
+## Demo
+![demo](./assets/demo.gif)
+
 ## License
 
 GPL-3.0
