@@ -253,13 +253,9 @@ export class TerraThreshSigClient {
     // The LCD clients must be initiated with a node and chain_id
     const terraClient = new LCDClient({
       // URL: 'https://lcd.terra.dev', // public node columbus_3
-      // URL: 'http://52.78.43.42:1317', // private node columbus_3
       // chainID: 'columbus_3',
 
-      // URL: 'https://soju-lcd.terra.dev' // public node soju
-      // URL: 'http://52.78.69.160:1317', //public node 2 soju
-      URL: 'http://54.249.197.56:1317', //private node soju
-      // URL: 'http://54.244.217.202:1317', //amanusk node
+      URL: 'https://soju-lcd.terra.dev', // public node soju
       chainID: 'soju-0014',
     });
 
