@@ -141,6 +141,8 @@ export class TerraThreshSigClient {
 
     let send = new MsgSend(from, to, coins);
 
+    console.log('Mesage Send', send);
+
     // Create tx
     // This also estimates the initial fees
     let tx = await this.terraWallet.createTx({
@@ -238,10 +240,14 @@ export class TerraThreshSigClient {
       .value();
 
     const addressIndex: number = addressObj.index;
+    console.log('AddressIndex', addressIndex);
 
     // Step 2: Signing the message
     // Sign the raw tx data
     let sigData = await this.sign(addressIndex, Buffer.from(tx.toJSON()));
+
+    let pubKey = this.getPublicKeyBuffer(addressIndex).toString('base64');
+    console.log('PubKey', pubKey);
 
     // Step 3: Inject signature to messate
     // Createa a sig+public key object
@@ -249,7 +255,7 @@ export class TerraThreshSigClient {
       signature: sigData.toString('base64'),
       pub_key: {
         type: 'tendermint/PubKeySecp256k1',
-        value: this.getPublicKeyBuffer(addressIndex).toString('base64'),
+        value: pubKey,
       },
     });
 
@@ -262,7 +268,7 @@ export class TerraThreshSigClient {
       console.log(tx.toJSON());
     } else {
       console.log(' ===== Executing ===== ');
-      console.log(tx.toJSON());
+      console.log(stdTx.toJSON());
       let resp = await this.terraWallet.lcd.tx.broadcast(stdTx);
       return resp;
     }
@@ -358,16 +364,12 @@ export class TerraThreshSigClient {
 
   // Two party signing function
   private async sign(addressIndex: number, payload: Buffer): Promise<Buffer> {
-    // Fetch the address index from the DB
-
-    // Get the child share
     const p2ChildShare: Party2Share = this.p2.getChildShare(
       this.p2MasterKeyShare,
       HD_COIN_INDEX,
       addressIndex,
     );
 
-    // Sign the buffer. Alternatively, pass a hash in the first place
     const hash = Buffer.from(SHA256(payload.toString()).toString(), 'hex');
 
     const signatureMPC: MPCSignature = await this.p2.sign(
