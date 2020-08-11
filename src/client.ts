@@ -5,6 +5,8 @@ import { DEFULT_GAS_PRICE } from './constants';
 import { DummyKey } from './dummyKey';
 
 import {
+  Account,
+  CreateTxOptions,
   MnemonicKey,
   LCDClient,
   Wallet,
@@ -141,11 +143,9 @@ export class TerraThreshSigClient {
 
     let send = new MsgSend(from, to, coins);
 
-    console.log('Mesage Send', send);
-
     // Create tx
     // This also estimates the initial fees
-    let tx = await this.terraWallet.createTx({
+    let tx = await this.createTx(from, {
       msgs: [send],
       gasPrices: gasPriceCoins,
     });
@@ -196,7 +196,7 @@ export class TerraThreshSigClient {
       send = new MsgSend(from, to, amountSubFee);
 
       // Create a new Tx with the updates fees
-      tx = await this.terraWallet.createTx({
+      tx = await this.createTx(from, {
         msgs: [send],
         fee: fee,
       });
@@ -240,14 +240,12 @@ export class TerraThreshSigClient {
       .value();
 
     const addressIndex: number = addressObj.index;
-    console.log('AddressIndex', addressIndex);
 
     // Step 2: Signing the message
     // Sign the raw tx data
     let sigData = await this.sign(addressIndex, Buffer.from(tx.toJSON()));
 
     let pubKey = this.getPublicKeyBuffer(addressIndex).toString('base64');
-    console.log('PubKey', pubKey);
 
     // Step 3: Inject signature to messate
     // Createa a sig+public key object
@@ -380,6 +378,54 @@ export class TerraThreshSigClient {
     );
     const signature = signatureMPC.toBuffer();
     return signature;
+  }
+  ////////////////////////// Aux method to create tx without key //////////////
+  public async accountNumber(fromAddress: string): Promise<number> {
+    return this.terraWallet.lcd.auth.accountInfo(fromAddress).then((d) => {
+      if (d instanceof Account) {
+        return d.account_number;
+      } else {
+        return d.BaseAccount.account_number;
+      }
+    });
+  }
+
+  public async sequence(fromAddress: string): Promise<number> {
+    return this.terraWallet.lcd.auth.accountInfo(fromAddress).then((d) => {
+      if (d instanceof Account) {
+        return d.sequence;
+      } else {
+        return d.BaseAccount.sequence;
+      }
+    });
+  }
+
+  public async createTx(
+    fromAddress: string,
+    options: CreateTxOptions,
+  ): Promise<StdSignMsg> {
+    let { fee, memo } = options;
+    const { msgs } = options;
+    memo = memo || '';
+    const gasPrices = this.terraWallet.lcd.config.gasPrices || new Coins({});
+    let gasPricesCoins = new Coins(gasPrices);
+    // set each denom in gas prices to 1
+    gasPricesCoins = new Coins(gasPricesCoins.map((c) => new Coin(c.denom, 1)));
+
+    if (fee === undefined) {
+      // estimate the fee
+      const stdTx = new StdTx(msgs, new StdFee(0, gasPricesCoins), [], memo);
+      fee = await this.terraWallet.lcd.tx.estimateFee(stdTx);
+    }
+
+    return new StdSignMsg(
+      this.terraWallet.lcd.config.chainID,
+      await this.accountNumber(fromAddress),
+      await this.sequence(fromAddress),
+      fee,
+      msgs,
+      memo,
+    );
   }
 }
 
