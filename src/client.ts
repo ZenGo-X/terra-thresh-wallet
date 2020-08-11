@@ -231,17 +231,12 @@ export class TerraThreshSigClient {
       sendAll,
     );
 
-    console.log('From', from);
-    console.log('db', this.db);
-
     // Get relevant from address index (for sign and public key)
-
     const addressObj: any = this.db
       .get('addresses')
-      .find({ address: from })
+      .find({ accAddress: from })
       .value();
 
-    console.log('AddressObj', addressObj);
     const addressIndex: number = addressObj.index;
 
     // Step 2: Signing the message
