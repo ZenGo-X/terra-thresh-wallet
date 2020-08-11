@@ -30,7 +30,7 @@ const uusdOnlyAccount = {
 };
 
 describe('Terra API tests', () => {
-  it.only('Transfers uluna to account', async () => {
+  it('Transfers uluna to account', async () => {
     await client.init();
     const balanceBefore = await client.getBalance(sinkAccount.address);
     //console.log('Balance before', balanceBefore._coins.uluna.amount);
@@ -53,13 +53,17 @@ describe('Terra API tests', () => {
   }).timeout(100000);
 
   it('Transfers uluna to an account then sends all funds back', async () => {
-    await client.init(bank.address);
+    await client.init();
     const balanceBefore = await client.getBalance(emptyAccount.address);
     //console.log(balanceBefore._coins);
     assert.equal(Object.keys(balanceBefore._coins).length, 0);
     // Init the client
-    await client.init();
-    const res = await client.transfer(emptyAccount.address, '10000', 'uluna');
+    const res = await client.transfer(
+      bank.address,
+      emptyAccount.address,
+      '10000',
+      'uluna',
+    );
 
     assert.ok(res.logs[0].success);
     let balanceAfter = await client.getBalance(emptyAccount.address);
@@ -68,21 +72,32 @@ describe('Terra API tests', () => {
     // console.log('Balance After', balanceAfter);
     assert.equal(balanceAfter, '10000');
 
-    await client.init(emptyAccount.address);
     // Send all back to bank
-    await client.transfer(bank.address, '10000', 'uluna', null, true);
+    await client.transfer(
+      emptyAccount.address,
+      bank.address,
+      '10000',
+      'uluna',
+      null,
+      true,
+    );
 
-    const balanceFinally = await client.getBalance(sinkAccount.address);
-    assert.equal(Object.keys(balanceBefore._coins).length, 0);
+    const balanceFinally = await client.getBalance(emptyAccount.address);
+    assert.equal(Object.keys(balanceFinally._coins).length, 0);
   }).timeout(100000);
 
   it('Transfers uusd to account', async () => {
-    await client.init(bank.address);
+    await client.init();
     const balanceBefore = await client.getBalance(sinkAccount.address);
     //console.log('Balance before', balanceBefore._coins.uluna.amount);
 
     // Transfer
-    const res = await client.transfer(sinkAccount.address, '10000', 'uusd');
+    const res = await client.transfer(
+      bank.address,
+      sinkAccount.address,
+      '10000',
+      'uusd',
+    );
     assert.ok(res.logs[0].success);
 
     const balanceAfter = await client.getBalance(sinkAccount.address);
@@ -94,12 +109,17 @@ describe('Terra API tests', () => {
   }).timeout(100000);
 
   it('Transfers uusd from account without uluna', async () => {
-    await client.init(uusdOnlyAccount.address);
+    await client.init();
     const balanceBefore = await client.getBalance(sinkAccount.address);
     //console.log('Balance before', balanceBefore._coins.uluna.amount);
 
     // Transfer
-    const res = await client.transfer(sinkAccount.address, '10000', 'uusd');
+    const res = await client.transfer(
+      uusdOnlyAccount.address,
+      sinkAccount.address,
+      '10000',
+      'uusd',
+    );
     assert.ok(res.logs[0].success);
 
     const balanceAfter = await client.getBalance(sinkAccount.address);
@@ -111,13 +131,17 @@ describe('Terra API tests', () => {
   }).timeout(100000);
 
   it('Transfers uusd to an account then sends all funds back', async () => {
-    await client.init(bank.address);
+    await client.init();
     const balanceBefore = await client.getBalance(emptyAccount.address);
     //console.log(balanceBefore._coins);
     assert.equal(Object.keys(balanceBefore._coins).length, 0);
     // Init the client
-    await client.init();
-    const res = await client.transfer(emptyAccount.address, '10000', 'uusd');
+    const res = await client.transfer(
+      bank.address,
+      emptyAccount.address,
+      '10000',
+      'uusd',
+    );
 
     assert.ok(res.logs[0].success);
     let balanceAfter = await client.getBalance(emptyAccount.address);
@@ -126,21 +150,31 @@ describe('Terra API tests', () => {
     // console.log('Balance After', balanceAfter);
     assert.equal(balanceAfter, '10000');
 
-    await client.init(emptyAccount.address);
     // Send all back to bank
-    await client.transfer(bank.address, '10000', 'uusd', null, true);
+    await client.transfer(
+      emptyAccount.address,
+      bank.address,
+      '10000',
+      'uusd',
+      null,
+      true,
+    );
 
-    const balanceFinally = await client.getBalance(sinkAccount.address);
-    assert.equal(Object.keys(balanceBefore._coins).length, 0);
+    const balanceFinally = await client.getBalance(emptyAccount.address);
+    assert.equal(Object.keys(balanceFinally._coins).length, 0);
   }).timeout(100000);
 
   it('Transfers ukrw to account', async () => {
-    await client.init(bank.address);
     const balanceBefore = await client.getBalance(sinkAccount.address);
     //console.log('Balance before', balanceBefore._coins.uluna.amount);
 
     // Transfer
-    const res = await client.transfer(sinkAccount.address, '10000', 'ukrw');
+    const res = await client.transfer(
+      bank.address,
+      sinkAccount.address,
+      '10000',
+      'ukrw',
+    );
     assert.ok(res.logs[0].success);
 
     const balanceAfter = await client.getBalance(sinkAccount.address);
@@ -152,13 +186,17 @@ describe('Terra API tests', () => {
   }).timeout(100000);
 
   it('Transfers ukrw to an account then sends all funds back', async () => {
-    await client.init(bank.address);
+    await client.init();
     const balanceBefore = await client.getBalance(emptyAccount.address);
     //console.log(balanceBefore._coins);
     assert.equal(Object.keys(balanceBefore._coins).length, 0);
     // Init the client
-    await client.init();
-    const res = await client.transfer(emptyAccount.address, '10000', 'ukrw');
+    const res = await client.transfer(
+      bank.address,
+      emptyAccount.address,
+      '10000',
+      'ukrw',
+    );
 
     assert.ok(res.logs[0].success);
     let balanceAfter = await client.getBalance(emptyAccount.address);
@@ -167,11 +205,17 @@ describe('Terra API tests', () => {
     // console.log('Balance After', balanceAfter);
     assert.equal(balanceAfter, '10000');
 
-    await client.init(emptyAccount.address);
     // Send all back to bank
-    await client.transfer(bank.address, '10000', 'ukrw', null, true);
+    await client.transfer(
+      emptyAccount.address,
+      bank.address,
+      '10000',
+      'ukrw',
+      null,
+      true,
+    );
 
-    const balanceFinally = await client.getBalance(sinkAccount.address);
-    assert.equal(Object.keys(balanceBefore._coins).length, 0);
+    const balanceFinally = await client.getBalance(emptyAccount.address);
+    assert.equal(Object.keys(balanceFinally._coins).length, 0);
   }).timeout(100000);
 });

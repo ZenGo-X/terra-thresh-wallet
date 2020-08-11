@@ -407,15 +407,23 @@ export class TerraThreshSigClient {
     let { fee, memo } = options;
     const { msgs } = options;
     memo = memo || '';
-    const gasPrices = this.terraWallet.lcd.config.gasPrices || new Coins({});
-    let gasPricesCoins = new Coins(gasPrices);
-    // set each denom in gas prices to 1
-    gasPricesCoins = new Coins(gasPricesCoins.map((c) => new Coin(c.denom, 1)));
+    const estimateFeeOptions = {
+      gasPrices: options.gasPrices || this.terraWallet.lcd.config.gasPrices,
+      gasAdjustment:
+        options.gasAdjustment || this.terraWallet.lcd.config.gasAdjustment,
+    };
+
+    const balance = await this.terraWallet.lcd.bank.balance(fromAddress);
+    const balanceOne = balance.map((c) => new Coin(c.denom, 1));
+    // create the fake fee
 
     if (fee === undefined) {
       // estimate the fee
-      const stdTx = new StdTx(msgs, new StdFee(0, gasPricesCoins), [], memo);
-      fee = await this.terraWallet.lcd.tx.estimateFee(stdTx);
+      const stdTx = new StdTx(msgs, new StdFee(0, balanceOne), [], memo);
+      fee = await this.terraWallet.lcd.tx.estimateFee(
+        stdTx,
+        estimateFeeOptions,
+      );
     }
 
     return new StdSignMsg(
