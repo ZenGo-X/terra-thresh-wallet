@@ -39,7 +39,7 @@ program
   .command('balance <address>')
   .option('-n, --network [name]', 'Name of network ("soju", "columbus_3")')
   .action(async (address, options) => {
-    await client.init(address);
+    await client.init();
     console.log(await client.getBalance(address, options.network || 'soju'));
   });
 
@@ -88,12 +88,13 @@ program
   .option('-dr, --dry_run', 'Print the tx without posting it')
   .option('-all, --all', 'Transfer all the coins of the specified currency')
   .action(async (from, to, amount, options) => {
-    await client.init(from);
+    await client.init();
     let sendOptions = {
       memo: options.memo,
       chainName: options.network,
     };
     let res = await client.transfer(
+      from,
       to,
       amount,
       options.denom || 'uluna',
@@ -113,12 +114,13 @@ program
   .option('-n, --network [name]', 'Name of network ("soju" or "columbus_3")')
   .option('-dr, --dry_run', 'Print the tx without posting it')
   .action(async (from, amount, ask, options) => {
-    await client.init(from);
+    await client.init();
     let sendOptions = {
       memo: options.memo,
       chainName: options.network,
     };
     let res = await client.swap(
+      from,
       amount,
       options.denom || 'uluna',
       options.ask || 'uusd',

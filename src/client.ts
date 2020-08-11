@@ -2,11 +2,9 @@ import assert from 'assert';
 import path from 'path';
 
 import { DEFULT_GAS_PRICE } from './constants';
-import { ThreasholdKey } from './threasholdKey';
+import { DummyKey } from './dummyKey';
 
 import {
-  Key,
-  AccAddress,
   MnemonicKey,
   LCDClient,
   Wallet,
@@ -14,6 +12,7 @@ import {
   MsgSwap,
   StdSignature,
   StdTx,
+  StdSignMsg,
   StdFee,
   Coin,
   Coins,
@@ -26,14 +25,15 @@ import {
   EcdsaSignature as MPCSignature,
 } from '@kzen-networks/thresh-sig';
 
-const client_debug = require('debug')('client_debug');
+import SHA256 from 'crypto-js/sha256';
+
+const P1_ENDPOINT = 'http://localhost:8000';
+const HD_COIN_INDEX = 0;
+const CLIENT_DB_PATH = path.join(__dirname, '../../client_db');
 
 import fs from 'fs';
 import low from 'lowdb';
 import FileSync from 'lowdb/adapters/FileSync';
-
-const CLIENT_DB_PATH = path.join(__dirname, '../../client_db');
-const P1_ENDPOINT = 'http://localhost:8000';
 
 type SendOptions = {
   memo?: string;
@@ -51,10 +51,7 @@ export class TerraThreshSigClient {
     this.p2 = new Party2(P1_ENDPOINT);
   }
 
-  public async getBalance(address?: string): Promise<Coins> {
-    if (address == null) {
-      address = this.terraWallet.key.accAddress;
-    }
+  public async getBalance(address: string): Promise<Coins> {
     return this.terraWallet.lcd.bank.balance(address);
   }
 
@@ -66,6 +63,7 @@ export class TerraThreshSigClient {
    * @param dryRun Create trasnsaction but do not broadcast
    */
   public async swap(
+    from: string,
     amount: string,
     denom: Denom,
     ask: Denom,
@@ -98,10 +96,11 @@ export class TerraThreshSigClient {
    * Returns balance in Coins for future use
    */
   private async checkEnoughBalance(
+    address: string,
     amount: string,
     denom: Denom,
   ): Promise<Coins> {
-    const balance = await this.getBalance();
+    const balance = await this.getBalance(address);
     const balanceCoins = balance.filter((res) => res.denom === denom);
     assert(
       Number(amount) < Number(balanceCoins.get(denom)?.toData().amount),
@@ -110,23 +109,14 @@ export class TerraThreshSigClient {
     return balance;
   }
 
-  /**
-   * Transfer tokens to address
-   * @param to  address to send tokens to
-   * @param amount Amount of tokens to send in u<Token>  == <Token> * 1e6
-   * @param denom Denomination of tokens to use. One of uluna, uusd, ukrw etc.
-   * @param options Optional memo and different gas fees
-   * @param sendAll Use special logic to send all tokens of specified denom
-   * @param dryRun Create trasnsaction but do not broadcast
-   */
-  public async transfer(
+  private async createTransferTx(
+    from: string,
     to: string,
     amount: string,
     denom: Denom,
     options?: SendOptions,
     sendAll?: boolean,
-    dryRun?: boolean,
-  ) {
+  ): Promise<StdSignMsg> {
     // For sending all, set the amount to the minimum, so that gas estimation works properly
     if (sendAll) {
       // Place holder so that gas estimation will not fail
@@ -134,7 +124,7 @@ export class TerraThreshSigClient {
     }
     // Optionally add a memo the transaction
     const memo: string = (options && options.memo) || '';
-    const balance = await this.checkEnoughBalance(amount, denom);
+    const balance = await this.checkEnoughBalance(from, amount, denom);
 
     // Set default denom to uluna
     if (denom == null) {
@@ -149,7 +139,7 @@ export class TerraThreshSigClient {
     const gasPriceCoin = new Coin(denom, DEFULT_GAS_PRICE);
     const gasPriceCoins = new Coins([gasPriceCoin]);
 
-    let send = new MsgSend(this.terraWallet.key.accAddress, to, coins);
+    let send = new MsgSend(from, to, coins);
 
     // Create tx
     // This also estimates the initial fees
@@ -201,7 +191,7 @@ export class TerraThreshSigClient {
         fee = new StdFee(fee.gas, fee.amount.add(taxCoin));
       }
       // Create a new message with adjusted amount
-      send = new MsgSend(this.terraWallet.key.accAddress, to, amountSubFee);
+      send = new MsgSend(from, to, amountSubFee);
 
       // Create a new Tx with the updates fees
       tx = await this.terraWallet.createTx({
@@ -209,23 +199,66 @@ export class TerraThreshSigClient {
         fee: fee,
       });
     }
+    return tx;
+  }
+
+  /**
+   * Transfer tokens to address
+   * @param to  address to send tokens to
+   * @param amount Amount of tokens to send in u<Token>  == <Token> * 1e6
+   * @param denom Denomination of tokens to use. One of uluna, uusd, ukrw etc.
+   * @param options Optional memo and different gas fees
+   * @param sendAll Use special logic to send all tokens of specified denom
+   * @param dryRun Create trasnsaction but do not broadcast
+   */
+  public async transfer(
+    from: string,
+    to: string,
+    amount: string,
+    denom: Denom,
+    options?: SendOptions,
+    sendAll?: boolean,
+    dryRun?: boolean,
+  ) {
     ////////////////////// Siging and broadcasting is split into steps ////////////////
     // Step 1: creating the trasnsaction (done)
+    const tx = await this.createTransferTx(
+      from,
+      to,
+      amount,
+      denom,
+      options,
+      sendAll,
+    );
+
+    console.log('From', from);
+    console.log('db', this.db);
+
+    // Get relevant from address index (for sign and public key)
+
+    const addressObj: any = this.db
+      .get('addresses')
+      .find({ address: from })
+      .value();
+
+    console.log('AddressObj', addressObj);
+    const addressIndex: number = addressObj.index;
 
     // Step 2: Signing the message
     // Sign the raw tx data
-    let sigData = await this.terraWallet.key.sign(Buffer.from(tx.toJSON()));
+    let sigData = await this.sign(addressIndex, Buffer.from(tx.toJSON()));
 
+    // Step 3: Inject signature to messate
     // Createa a sig+public key object
     let stdSig = StdSignature.fromData({
       signature: sigData.toString('base64'),
       pub_key: {
         type: 'tendermint/PubKeySecp256k1',
-        value: this.terraWallet.key.publicKey.toString('base64'),
+        value: this.getPublicKeyBuffer(addressIndex).toString('base64'),
       },
     });
 
-    // Create message + signature for boradcasting
+    // Create message object
     const stdTx = new StdTx(tx.msgs, tx.fee, [stdSig], tx.memo);
 
     // Step 3: Broadcasting the message
@@ -244,32 +277,18 @@ export class TerraThreshSigClient {
    * Initiate the client
    * @param accAddress Address to use for wallet generation. Optional. Otherwise uses index 0
    */
-  public async init(accAddress?: string) {
+  public async init() {
     this.initDb();
-
-    let masterKeyShare = await this.initMasterKey();
-    this.p2MasterKeyShare = masterKeyShare;
+    this.initMasterKey();
 
     // The LCD clients must be initiated with a node and chain_id
     const terraClient = new LCDClient({
-      // URL: 'https://lcd.terra.dev', // public node columbus_3
-      // chainID: 'columbus_3',
-
       URL: 'https://soju-lcd.terra.dev', // public node soju
       chainID: 'soju-0014',
     });
-
-    let addressIndex = 0;
-    const addressObj: any = this.db
-      .get('addresses')
-      .find({ accAddress })
-      .value();
-    if (addressObj) {
-      addressIndex = addressObj.index;
-    }
-
-    const key = new ThreasholdKey(masterKeyShare, this.p2, addressIndex);
-    this.terraWallet = terraClient.wallet(key);
+    // Place holder for the key, this will not work for signing
+    let dummyKey = new DummyKey(Buffer.alloc(0));
+    this.terraWallet = terraClient.wallet(dummyKey);
   }
 
   private initDb() {
@@ -285,7 +304,7 @@ export class TerraThreshSigClient {
    * @return {Promise}
    */
   private async initMasterKey() {
-    return this.restoreOrGenerateMasterKey();
+    this.p2MasterKeyShare = await this.restoreOrGenerateMasterKey();
   }
 
   /**
@@ -296,7 +315,6 @@ export class TerraThreshSigClient {
     if (p2MasterKeyShare) {
       return p2MasterKeyShare;
     }
-
     return this.generateMasterKeyShare();
   }
 
@@ -312,11 +330,10 @@ export class TerraThreshSigClient {
    * @param addressIndex HD index of the address to get
    */
   public getAddress(addressIndex = 0): string {
-    const address: Key = new ThreasholdKey(
-      this.p2MasterKeyShare,
-      this.p2,
-      addressIndex,
-    );
+    const publicKeyBuffer = this.getPublicKeyBuffer(addressIndex);
+    // This is only to generate an address from public key
+    const address = new DummyKey(publicKeyBuffer);
+
     const accAddress = address.accAddress;
     const dbAddress = this.db.get('addresses').find({ accAddress }).value();
     if (!dbAddress) {
@@ -326,6 +343,46 @@ export class TerraThreshSigClient {
         .write();
     }
     return address.accAddress;
+  }
+
+  private getPublicKeyBuffer(addressIndex: number): Buffer {
+    const publicKey = this.getPublicKey(addressIndex);
+    const publicKeyHex = publicKey.encode('hex', true);
+    return Buffer.from(publicKeyHex, 'hex');
+  }
+
+  private getPublicKey(addressIndex: number) {
+    // assuming a single default address
+    const p2ChildShare = this.p2.getChildShare(
+      this.p2MasterKeyShare,
+      HD_COIN_INDEX,
+      addressIndex,
+    );
+    return p2ChildShare.getPublicKey();
+  }
+
+  // Two party signing function
+  private async sign(addressIndex: number, payload: Buffer): Promise<Buffer> {
+    // Fetch the address index from the DB
+
+    // Get the child share
+    const p2ChildShare: Party2Share = this.p2.getChildShare(
+      this.p2MasterKeyShare,
+      HD_COIN_INDEX,
+      addressIndex,
+    );
+
+    // Sign the buffer. Alternatively, pass a hash in the first place
+    const hash = Buffer.from(SHA256(payload.toString()).toString(), 'hex');
+
+    const signatureMPC: MPCSignature = await this.p2.sign(
+      hash,
+      p2ChildShare,
+      HD_COIN_INDEX,
+      addressIndex,
+    );
+    const signature = signatureMPC.toBuffer();
+    return signature;
   }
 }
 
