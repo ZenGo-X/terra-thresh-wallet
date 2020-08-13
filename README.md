@@ -187,6 +187,6 @@ terracli rest-server --chain-id=soju-0014     --laddr=tcp://0.0.0.0:1317     --n
 ## Demo
 ![demo](./assets/demo.gif)
 
-## License
+## Contact
 
-GPL-3.0
+Feel free to [reach out](mailto:github@kzencorp.com) or join ZenGo X [Telegram](https://t.me/zengo_x) for discussions on code and research.
