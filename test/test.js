@@ -41,6 +41,9 @@ describe('Terra API tests', () => {
       sinkAccount.address,
       '10000',
       'uluna',
+      null,
+      false,
+      true,
     );
     assert.ok(res.logs[0].success);
 
@@ -63,6 +66,9 @@ describe('Terra API tests', () => {
       emptyAccount.address,
       '10000',
       'uluna',
+      null,
+      false, // sendall
+      true, // syncSend
     );
 
     assert.ok(res.logs[0].success);
@@ -79,6 +85,7 @@ describe('Terra API tests', () => {
       '10000',
       'uluna',
       null,
+      true,
       true,
     );
 
@@ -97,6 +104,9 @@ describe('Terra API tests', () => {
       sinkAccount.address,
       '10000',
       'uusd',
+      null,
+      false, // sendall
+      true, // syncSend
     );
     assert.ok(res.logs[0].success);
 
@@ -119,6 +129,9 @@ describe('Terra API tests', () => {
       sinkAccount.address,
       '10000',
       'uusd',
+      null,
+      false, // sendall
+      true, // syncSend
     );
     assert.ok(res.logs[0].success);
 
@@ -141,6 +154,9 @@ describe('Terra API tests', () => {
       emptyAccount.address,
       '10000',
       'uusd',
+      null,
+      false, // sendall
+      true, // syncSend
     );
 
     assert.ok(res.logs[0].success);
@@ -157,7 +173,8 @@ describe('Terra API tests', () => {
       '10000',
       'uusd',
       null,
-      true,
+      true, // send all
+      true, // syncSend
     );
 
     const balanceFinally = await client.getBalance(emptyAccount.address);
@@ -174,6 +191,9 @@ describe('Terra API tests', () => {
       sinkAccount.address,
       '10000',
       'ukrw',
+      null,
+      false,
+      true,
     );
     assert.ok(res.logs[0].success);
 
@@ -196,6 +216,9 @@ describe('Terra API tests', () => {
       emptyAccount.address,
       '10000',
       'ukrw',
+      null,
+      false,
+      true,
     );
 
     assert.ok(res.logs[0].success);
@@ -212,6 +235,7 @@ describe('Terra API tests', () => {
       '10000',
       'ukrw',
       null,
+      true,
       true,
     );
 

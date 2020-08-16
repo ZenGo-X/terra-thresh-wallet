@@ -226,6 +226,7 @@ export class TerraThreshSigClient {
     denom: Denom,
     options?: SendOptions,
     sendAll?: boolean,
+    syncSend?: boolean,
     dryRun?: boolean,
   ) {
     ////////////////////// Siging and broadcasting is split into steps ////////////////
@@ -273,7 +274,12 @@ export class TerraThreshSigClient {
     } else {
       console.log(' ===== Executing ===== ');
       console.log(stdTx.toJSON());
-      let resp = await this.terraWallet.lcd.tx.broadcast(stdTx);
+      let resp;
+      if (syncSend) {
+        resp = await this.terraWallet.lcd.tx.broadcast(stdTx);
+      } else {
+        resp = await this.terraWallet.lcd.tx.broadcastSync(stdTx);
+      }
       return resp;
     }
   }
