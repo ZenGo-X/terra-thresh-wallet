@@ -42,6 +42,10 @@ type SendOptions = {
   feeDenom?: Denom;
 };
 
+interface LocalCreateTxOptions extends CreateTxOptions {
+  fromAddress: string;
+}
+
 export class TerraThreshSigClient {
   private mainnet: boolean;
   private db: any;
@@ -145,9 +149,10 @@ export class TerraThreshSigClient {
 
     // Create tx
     // This also estimates the initial fees
-    let tx = await this.createTx(from, {
+    let tx = await this.createTx({
       msgs: [send],
       gasPrices: gasPriceCoins,
+      fromAddress: from,
     });
 
     // Extract estimated fee
@@ -196,9 +201,10 @@ export class TerraThreshSigClient {
       send = new MsgSend(from, to, amountSubFee);
 
       // Create a new Tx with the updates fees
-      tx = await this.createTx(from, {
+      tx = await this.createTx({
         msgs: [send],
         fee: fee,
+        fromAddress: from,
       });
     }
     return tx;
@@ -400,10 +406,7 @@ export class TerraThreshSigClient {
     });
   }
 
-  public async createTx(
-    fromAddress: string,
-    options: CreateTxOptions,
-  ): Promise<StdSignMsg> {
+  public async createTx(options: LocalCreateTxOptions): Promise<StdSignMsg> {
     let { fee, memo } = options;
     const { msgs } = options;
     memo = memo || '';
@@ -413,7 +416,9 @@ export class TerraThreshSigClient {
         options.gasAdjustment || this.terraWallet.lcd.config.gasAdjustment,
     };
 
-    const balance = await this.terraWallet.lcd.bank.balance(fromAddress);
+    const balance = await this.terraWallet.lcd.bank.balance(
+      options.fromAddress,
+    );
     const balanceOne = balance.map((c) => new Coin(c.denom, 1));
     // create the fake fee
 
@@ -428,8 +433,8 @@ export class TerraThreshSigClient {
 
     return new StdSignMsg(
       this.terraWallet.lcd.config.chainID,
-      await this.accountNumber(fromAddress),
-      await this.sequence(fromAddress),
+      await this.accountNumber(options.fromAddress),
+      await this.sequence(options.fromAddress),
       fee,
       msgs,
       memo,
