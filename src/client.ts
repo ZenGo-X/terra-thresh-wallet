@@ -5,8 +5,7 @@ import { DEFULT_GAS_PRICE } from './constants';
 import { DummyKey } from './dummyKey';
 
 import {
-  Account,
-  CreateTxOptions,
+  AccAddress,
   MnemonicKey,
   LCDClient,
   Wallet,
@@ -42,59 +41,18 @@ type SendOptions = {
   feeDenom?: Denom;
 };
 
-interface LocalCreateTxOptions extends CreateTxOptions {
-  fromAddress: string;
-}
-
 export class TerraThreshSigClient {
-  private mainnet: boolean;
   private db: any;
   private p2: Party2;
   private p2MasterKeyShare: Party2Share;
-  private terraWallet: Wallet;
+  private lcd: LCDClient;
 
-  constructor(mainnet: boolean = false) {
+  constructor() {
     this.p2 = new Party2(P1_ENDPOINT);
   }
 
   public async getBalance(address: string): Promise<Coins> {
-    return this.terraWallet.lcd.bank.balance(address);
-  }
-
-  /**
-   * Transfer tokens to address
-   * @param amount Amount of tokens to swa in u<Token>  == <Token> * 1e6
-   * @param denom Denomination of tokens to use. One of uluna, uusd, ukrw etc.
-   * @param ask Denom of tokens to received. One of uluna, uusd, ukrw
-   * @param dryRun Create trasnsaction but do not broadcast
-   */
-  public async swap(
-    from: string,
-    amount: string,
-    denom: Denom,
-    ask: Denom,
-    options?: SendOptions,
-    dryRun?: boolean,
-  ) {
-    let offer = new Coin(denom, amount);
-
-    // This is an example of creating a transaction without breaking down to stesp
-    const msg = new MsgSwap(this.terraWallet.key.accAddress, offer, ask);
-
-    // This is
-    const tx = await this.terraWallet.createAndSignTx({
-      msgs: [msg],
-    });
-
-    if (dryRun) {
-      console.log('------ Dry Run ----- ');
-      console.log(tx.toJSON());
-    } else {
-      console.log(' ===== Executing ===== ');
-      console.log(tx.toJSON());
-      let resp = await this.terraWallet.lcd.tx.broadcast(tx);
-      return resp;
-    }
+    return this.lcd.bank.balance(address);
   }
 
   /**
@@ -149,10 +107,9 @@ export class TerraThreshSigClient {
 
     // Create tx
     // This also estimates the initial fees
-    let tx = await this.createTx({
+    let tx = await this.lcd.tx.create(from, {
       msgs: [send],
       gasPrices: gasPriceCoins,
-      fromAddress: from,
     });
 
     // Extract estimated fee
@@ -180,9 +137,9 @@ export class TerraThreshSigClient {
       // For tokens other than LUNA, an additional stablity tax is payed
       if (denom != 'uluna') {
         // Tax rate per token sent
-        const taxRate = await this.terraWallet.lcd.treasury.taxRate();
+        const taxRate = await this.lcd.treasury.taxRate();
         // Cap on max tax per transactions
-        const taxCap = await this.terraWallet.lcd.treasury.taxCap(denom);
+        const taxCap = await this.lcd.treasury.taxCap(denom);
         const taxCapAmount = Number(taxCap.toData().amount);
         // Subtract known fees from amount to be sent
         let taxedAmount = amountSubFee.get(denom)?.toData().amount;
@@ -201,10 +158,9 @@ export class TerraThreshSigClient {
       send = new MsgSend(from, to, amountSubFee);
 
       // Create a new Tx with the updates fees
-      tx = await this.createTx({
+      tx = await this.lcd.tx.create(from, {
         msgs: [send],
         fee: fee,
-        fromAddress: from,
       });
     }
     return tx;
@@ -229,6 +185,8 @@ export class TerraThreshSigClient {
     syncSend?: boolean,
     dryRun?: boolean,
   ) {
+    // Validate to address
+    assert(AccAddress.validate(to), 'To address is invalid');
     ////////////////////// Siging and broadcasting is split into steps ////////////////
     // Step 1: creating the trasnsaction (done)
     const tx = await this.createTransferTx(
@@ -276,9 +234,9 @@ export class TerraThreshSigClient {
       console.log(stdTx.toJSON());
       let resp;
       if (syncSend) {
-        resp = await this.terraWallet.lcd.tx.broadcast(stdTx);
+        resp = await this.lcd.tx.broadcast(stdTx);
       } else {
-        resp = await this.terraWallet.lcd.tx.broadcastSync(stdTx);
+        resp = await this.lcd.tx.broadcastSync(stdTx);
       }
       return resp;
     }
@@ -293,13 +251,10 @@ export class TerraThreshSigClient {
     this.initMasterKey();
 
     // The LCD clients must be initiated with a node and chain_id
-    const terraClient = new LCDClient({
+    this.lcd = new LCDClient({
       URL: 'https://soju-lcd.terra.dev', // public node soju
       chainID: 'soju-0014',
     });
-    // Place holder for the key, this will not work for signing
-    let dummyKey = new DummyKey(Buffer.alloc(0));
-    this.terraWallet = terraClient.wallet(dummyKey);
   }
 
   private initDb() {
@@ -390,61 +345,6 @@ export class TerraThreshSigClient {
     );
     const signature = signatureMPC.toBuffer();
     return signature;
-  }
-  ////////////////////////// Aux method to create tx without key //////////////
-  public async accountNumber(fromAddress: string): Promise<number> {
-    return this.terraWallet.lcd.auth.accountInfo(fromAddress).then((d) => {
-      if (d instanceof Account) {
-        return d.account_number;
-      } else {
-        return d.BaseAccount.account_number;
-      }
-    });
-  }
-
-  public async sequence(fromAddress: string): Promise<number> {
-    return this.terraWallet.lcd.auth.accountInfo(fromAddress).then((d) => {
-      if (d instanceof Account) {
-        return d.sequence;
-      } else {
-        return d.BaseAccount.sequence;
-      }
-    });
-  }
-
-  public async createTx(options: LocalCreateTxOptions): Promise<StdSignMsg> {
-    let { fee, memo } = options;
-    const { msgs } = options;
-    memo = memo || '';
-    const estimateFeeOptions = {
-      gasPrices: options.gasPrices || this.terraWallet.lcd.config.gasPrices,
-      gasAdjustment:
-        options.gasAdjustment || this.terraWallet.lcd.config.gasAdjustment,
-    };
-
-    const balance = await this.terraWallet.lcd.bank.balance(
-      options.fromAddress,
-    );
-    const balanceOne = balance.map((c) => new Coin(c.denom, 1));
-    // create the fake fee
-
-    if (fee === undefined) {
-      // estimate the fee
-      const stdTx = new StdTx(msgs, new StdFee(0, balanceOne), [], memo);
-      fee = await this.terraWallet.lcd.tx.estimateFee(
-        stdTx,
-        estimateFeeOptions,
-      );
-    }
-
-    return new StdSignMsg(
-      this.terraWallet.lcd.config.chainID,
-      await this.accountNumber(options.fromAddress),
-      await this.sequence(options.fromAddress),
-      fee,
-      msgs,
-      memo,
-    );
   }
 }
 
