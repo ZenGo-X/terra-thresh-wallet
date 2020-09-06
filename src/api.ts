@@ -1,10 +1,11 @@
 const rp = require('request-promise');
 const Chains = {
   columbus_3: 'https://fcd.terra.dev/v1',
+  tequila: 'https://tequila-fcd.terra.dev/v1',
   soju: 'https://soju-fcd.terra.dev/v1',
 };
 
-export type ChainName = 'columbus_3' | 'soju';
+export type ChainName = 'columbus_3' | 'soju' | 'tequila';
 
 export async function get(chainName: ChainName, route: string): Promise<any> {
   console.log(`${Chains[chainName]}${route}`);

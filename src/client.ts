@@ -1,7 +1,7 @@
 import assert from 'assert';
 import path from 'path';
 
-import { DEFULT_GAS_PRICE } from './constants';
+import { DEFULT_GAS_PRICE, GAS_PRICE_MAP } from './constants';
 import { DummyKey } from './dummyKey';
 
 import {
@@ -100,8 +100,16 @@ export class TerraThreshSigClient {
     let coins = new Coins([coin]);
 
     // Coins for gas fees
-    const gasPriceCoin = new Coin(denom, DEFULT_GAS_PRICE);
-    const gasPriceCoins = new Coins([gasPriceCoin]);
+    let gasPrice = GAS_PRICE_MAP.get(denom);
+
+    let gasPriceCoin;
+    let gasPriceCoins;
+    if (gasPrice) {
+      gasPriceCoin = new Coin(denom, gasPrice);
+      gasPriceCoins = new Coins([gasPriceCoin]);
+    } else {
+      throw 'Illegal denominator';
+    }
 
     let send = new MsgSend(from, to, coins);
 
@@ -222,6 +230,13 @@ export class TerraThreshSigClient {
       },
     });
 
+    //let failedCoin = new Coin(denom, 1000);
+    //let failedCoins = new Coins([failedCoin]);
+
+    //const failedFee = new StdFee(30000, failedCoins);
+
+    //const stdTx = new StdTx(tx.msgs, failedFee, [stdSig], tx.memo);
+
     // Create message object
     const stdTx = new StdTx(tx.msgs, tx.fee, [stdSig], tx.memo);
 
@@ -233,6 +248,7 @@ export class TerraThreshSigClient {
       console.log(' ===== Executing ===== ');
       console.log(stdTx.toJSON());
       let resp;
+      console.log('SyncSend', syncSend);
       if (syncSend) {
         resp = await this.lcd.tx.broadcast(stdTx);
       } else {
@@ -254,6 +270,8 @@ export class TerraThreshSigClient {
     this.lcd = new LCDClient({
       URL: 'https://soju-lcd.terra.dev', // public node soju
       chainID: 'soju-0014',
+      //URL: 'https://tequila-lcd.terra.dev', // public node soju
+      //chainID: 'tequila-0004',
     });
   }
 
