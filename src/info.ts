@@ -1,3 +1,4 @@
+import fetch from 'node-fetch';
 import { get, ChainName } from './api';
 
 export async function getTxInfo(
@@ -30,4 +31,12 @@ export async function getTransactions(options: GetTransactionsOptions = {}) {
     (options.page ? `&page=${options.page}` : '') +
     (options.limit ? `&limit=${options.limit}` : '');
   return get(chainName, query);
+}
+
+export async function getChainID(): Promise<string> {
+  // This should be replaced with the mainnet endpoint
+  let res = await fetch('https://tequila-fcd.terra.dev/node_info');
+  let nodeInfo = await res.json();
+  let chainID = nodeInfo.node_info.network;
+  return chainID;
 }

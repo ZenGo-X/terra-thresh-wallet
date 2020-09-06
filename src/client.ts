@@ -1,8 +1,9 @@
 import assert from 'assert';
 import path from 'path';
 
-import { DEFULT_GAS_PRICE, GAS_PRICE_MAP } from './constants';
+import { COLUMBUS3_PRICE_MAP, COLUMBUS4_PRICE_MAP } from './constants';
 import { DummyKey } from './dummyKey';
+import { getChainID } from './info';
 
 import {
   AccAddress,
@@ -100,7 +101,20 @@ export class TerraThreshSigClient {
     let coins = new Coins([coin]);
 
     // Coins for gas fees
-    let gasPrice = GAS_PRICE_MAP.get(denom);
+
+    let id = this.lcd.config.chainID;
+    console.log('ChainID', id);
+
+    let gasPrice;
+    if (id === 'soju-0014' || id === 'columus-3') {
+      gasPrice = COLUMBUS3_PRICE_MAP.get(denom);
+      console.log('GasPrice', gasPrice);
+    } else if (id === 'tequila-0004' || id === 'columus-4') {
+      gasPrice = COLUMBUS4_PRICE_MAP.get(denom);
+      console.log('GasPrice', gasPrice);
+    } else {
+      throw 'Unrecognized network ID';
+    }
 
     let gasPriceCoin;
     let gasPriceCoins;
@@ -268,10 +282,10 @@ export class TerraThreshSigClient {
 
     // The LCD clients must be initiated with a node and chain_id
     this.lcd = new LCDClient({
-      URL: 'https://soju-lcd.terra.dev', // public node soju
-      chainID: 'soju-0014',
-      //URL: 'https://tequila-lcd.terra.dev', // public node soju
-      //chainID: 'tequila-0004',
+      //URL: 'https://soju-lcd.terra.dev', // public node soju
+      //chainID: 'soju-0014',
+      URL: 'https://tequila-lcd.terra.dev', // public node soju
+      chainID: 'tequila-0004',
     });
   }
 
