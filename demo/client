@@ -10,6 +10,7 @@ const {
   getTransactions,
   getTxInfo,
   getSwapRates,
+  getChainID,
   addressGenerator,
 } = require('../dist/src');
 
@@ -79,6 +80,14 @@ program
   });
 
 program
+  .command('chain_id')
+  .option('-n, --network [name]', 'Name of network ("soju" or "columbus-3')
+  .action(async (options) => {
+    const chainID = await getChainID(options.network || 'columbus');
+    console.log(chainID);
+  });
+
+program
   .command('transfer <from> <to> <amount>')
   .option(
     '-d, --denom [symbol]',
@@ -88,7 +97,7 @@ program
   .option('-dr, --dry_run', 'Print the tx without posting it')
   .option('-all, --all', 'Transfer all the coins of the specified currency')
   .action(async (from, to, amount, options) => {
-    await client.init();
+    await client.init(options.network);
     let sendOptions = {
       memo: options.memo,
       chainName: options.network,

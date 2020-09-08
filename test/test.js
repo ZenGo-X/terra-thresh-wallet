@@ -30,7 +30,7 @@ const uusdOnlyAccount = {
 };
 
 describe('Terra API tests', () => {
-  it.only('Transfers uluna to account', async () => {
+  it('Transfers uluna to account', async () => {
     await client.init();
     const balanceBefore = await client.getBalance(sinkAccount.address);
     //console.log('Balance before', balanceBefore._coins.uluna.amount);

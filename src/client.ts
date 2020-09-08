@@ -1,9 +1,9 @@
 import assert from 'assert';
 import path from 'path';
 
-import { COLUMBUS3_PRICE_MAP, COLUMBUS4_PRICE_MAP } from './constants';
 import { DummyKey } from './dummyKey';
-import { getChainID } from './info';
+import { getChainID, getGasPrices, GasPrices } from './info';
+import { ChainName, Chains } from './api';
 
 import {
   AccAddress,
@@ -45,6 +45,7 @@ type SendOptions = {
 export class TerraThreshSigClient {
   private db: any;
   private p2: Party2;
+  private chainName: ChainName;
   private p2MasterKeyShare: Party2Share;
   private lcd: LCDClient;
 
@@ -100,24 +101,14 @@ export class TerraThreshSigClient {
     let coin = new Coin(denom, amount);
     let coins = new Coins([coin]);
 
-    // Coins for gas fees
+    let gasPrices: GasPrices = await getGasPrices(this.chainName);
 
-    let id = this.lcd.config.chainID;
-    console.log('ChainID', id);
-
-    let gasPrice;
-    if (id === 'soju-0014' || id === 'columus-3') {
-      gasPrice = COLUMBUS3_PRICE_MAP.get(denom);
-      console.log('GasPrice', gasPrice);
-    } else if (id === 'tequila-0004' || id === 'columus-4') {
-      gasPrice = COLUMBUS4_PRICE_MAP.get(denom);
-      console.log('GasPrice', gasPrice);
-    } else {
-      throw 'Unrecognized network ID';
-    }
+    let gasPrice = gasPrices[denom];
+    console.log('GasPrice', gasPrice);
 
     let gasPriceCoin;
     let gasPriceCoins;
+
     if (gasPrice) {
       gasPriceCoin = new Coin(denom, gasPrice);
       gasPriceCoins = new Coins([gasPriceCoin]);
@@ -276,16 +267,26 @@ export class TerraThreshSigClient {
    * Initiate the client
    * @param accAddress Address to use for wallet generation. Optional. Otherwise uses index 0
    */
-  public async init() {
+  public async init(chainName?: ChainName) {
     this.initDb();
     this.initMasterKey();
 
+    if (chainName == null) {
+      chainName = 'tequila';
+    }
+    this.chainName = chainName;
+
+    let URL = Chains[chainName];
+    let chainID = await getChainID(chainName);
+    console.log('URL', URL);
+    console.log('chainID', chainID);
+
     // The LCD clients must be initiated with a node and chain_id
     this.lcd = new LCDClient({
-      //URL: 'https://soju-lcd.terra.dev', // public node soju
-      //chainID: 'soju-0014',
-      URL: 'https://tequila-lcd.terra.dev', // public node soju
-      chainID: 'tequila-0004',
+      //URL: 'https://tequila-lcd.terra.dev', // public node soju
+      //chainID: 'tequila-0001',
+      URL,
+      chainID,
     });
   }
 
