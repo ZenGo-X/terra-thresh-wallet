@@ -56,6 +56,19 @@ program
   });
 
 program
+  .command('delegations <address>')
+  .option(
+    '-n, --network [name]',
+    'Name of network ("soju", "columbus", "tequila")',
+  )
+  .action(async (address, options) => {
+    await client.init(options.network);
+    console.log(
+      await client.getDelegations(address, options.network || 'tequila'),
+    );
+  });
+
+program
   .command('rates')
   .option(
     '-d, --denom [symbol]',
@@ -63,6 +76,7 @@ program
   )
   .option('-n, --network [name]', 'Name of network ("soju" or "columbus_3")')
   .action(async (options) => {
+    await client.init(options.network);
     console.log(
       await getSwapRates(options.denom || 'uluna', options.network || 'soju'),
     );
@@ -114,6 +128,62 @@ program
       chainName: options.network,
     };
     let res = await client.transfer(
+      from,
+      to,
+      amount,
+      options.denom || 'uluna',
+      sendOptions,
+      options.all,
+      true,
+      options.dry_run,
+    );
+    console.log('Result', res);
+  });
+
+program
+  .command('delegate <from> <to> <amount>')
+  .option(
+    '-d, --denom [symbol]',
+    'denomination of the transfer ("luna" default, "usd", ...)',
+  )
+  .option('-n, --network [name]', 'Name of network ("soju" or "columbus_3")')
+  .option('-dr, --dry_run', 'Print the tx without posting it')
+  .option('-all, --all', 'Transfer all the coins of the specified currency')
+  .action(async (from, to, amount, options) => {
+    await client.init(options.network);
+    let sendOptions = {
+      memo: options.memo,
+      chainName: options.network,
+    };
+    let res = await client.delegate(
+      from,
+      to,
+      amount,
+      options.denom || 'uluna',
+      sendOptions,
+      options.all,
+      true,
+      options.dry_run,
+    );
+    console.log('Result', res);
+  });
+
+program
+  .command('undelegate <from> <to> <amount>')
+  .option(
+    '-d, --denom [symbol]',
+    'denomination of the transfer ("luna" default, "usd", ...)',
+  )
+  .option('-n, --network [name]', 'Name of network ("soju" or "columbus_3")')
+  .option('-dr, --dry_run', 'Print the tx without posting it')
+  .option('-all, --all', 'Transfer all the coins of the specified currency')
+  .action(async (from, to, amount, options) => {
+    await client.init(options.network);
+    let sendOptions = {
+      memo: options.memo,
+      chainName: options.network,
+    };
+    let res = await client.undelegate(
       from,
       to,
       amount,
