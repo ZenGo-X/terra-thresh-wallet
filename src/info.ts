@@ -39,6 +39,15 @@ export async function getChainID(chainName: ChainName): Promise<string> {
   return chainID;
 }
 
+export async function getValidatorInfo(
+  validator: string,
+  chainName: ChainName,
+): Promise<string> {
+  // This should be replaced with the mainnet endpoint
+  let res = await get(chainName, `/v1/staking/validators/${validator}`);
+  return res;
+}
+
 export async function getGasPrices(chainName: ChainName): Promise<GasPrices> {
   // This should be replaced with the mainnet endpoint
   let res: GasPrices = await get(chainName, '/v1/txs/gas_prices');

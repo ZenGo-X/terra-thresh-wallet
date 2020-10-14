@@ -12,6 +12,7 @@ const {
   getSwapRates,
   getChainID,
   addressGenerator,
+  getValidatorInfo,
 } = require('../dist/src');
 
 const { TerraThreshSigClient } = require('../dist/src');
@@ -42,6 +43,16 @@ program
   .action(async (address, options) => {
     await client.init(options.network);
     console.log(await client.getBalance(address, options.network || 'tequila'));
+  });
+
+program
+  .command('validator_stats <address>')
+  .option(
+    '-n, --network [name]',
+    'Name of network ("soju", "columbus", "tequila")',
+  )
+  .action(async (address, options) => {
+    console.log(await getValidatorInfo(address, options.network || 'tequila'));
   });
 
 program

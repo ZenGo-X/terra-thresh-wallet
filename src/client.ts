@@ -11,6 +11,7 @@ import {
   LCDClient,
   Wallet,
   MsgSend,
+  MsgDelegate,
   MsgSwap,
   StdSignature,
   StdTx,
@@ -55,6 +56,11 @@ export class TerraThreshSigClient {
 
   public async getBalance(address: string): Promise<Coins> {
     return this.lcd.bank.balance(address);
+  }
+
+  public async getValidatorStats(validator: string) {
+    let res = await this.lcd.staking.validator(validator);
+    console.log(res);
   }
 
   /**
@@ -235,13 +241,6 @@ export class TerraThreshSigClient {
       },
     });
 
-    //let failedCoin = new Coin(denom, 1000);
-    //let failedCoins = new Coins([failedCoin]);
-
-    //const failedFee = new StdFee(30000, failedCoins);
-
-    //const stdTx = new StdTx(tx.msgs, failedFee, [stdSig], tx.memo);
-
     // Create message object
     const stdTx = new StdTx(tx.msgs, tx.fee, [stdSig], tx.memo);
 
@@ -261,6 +260,65 @@ export class TerraThreshSigClient {
       }
       return resp;
     }
+  }
+
+  /**
+   * Transfer tokens to address
+   * @param to  address to send tokens to
+   * @param amount Amount of tokens to send in u<Token>  == <Token> * 1e6
+   * @param denom Denomination of tokens to use. One of uluna, uusd, ukrw etc.
+   * @param options Optional memo and different gas fees
+   * @param sendAll Use special logic to send all tokens of specified denom
+   * @param dryRun Create trasnsaction but do not broadcast
+   */
+  public async delegate(
+    from: string,
+    to: string,
+    amount: string,
+    denom: Denom,
+    options?: SendOptions,
+    sendAll?: boolean,
+    syncSend?: boolean,
+    dryRun?: boolean,
+  ) {
+    // Validate to address
+    assert(AccAddress.validate(to), 'To address is invalid');
+
+    // Optionally add a memo the transaction
+    const memo: string = (options && options.memo) || '';
+    const balance = await this.checkEnoughBalance(from, amount, denom);
+
+    // Set default denom to uluna
+    if (denom == null) {
+      denom = 'uluna';
+    }
+
+    // Coins for amount
+    let coin = new Coin(denom, amount);
+
+    let gasPrices: GasPrices = await getGasPrices(this.chainName);
+
+    let gasPrice = gasPrices[denom];
+    console.log('GasPrice', gasPrice);
+
+    let gasPriceCoin;
+    let gasPriceCoins;
+
+    if (gasPrice) {
+      gasPriceCoin = new Coin(denom, gasPrice);
+      gasPriceCoins = new Coins([gasPriceCoin]);
+    } else {
+      throw 'Illegal denominator';
+    }
+
+    let send = new MsgDelegate(from, to, coin);
+
+    // Create tx
+    // This also estimates the initial fees
+    let tx = await this.lcd.tx.create(from, {
+      msgs: [send],
+      gasPrices: gasPriceCoins,
+    });
   }
 
   /**
