@@ -109,6 +109,7 @@ program
       options.denom || 'uluna',
       sendOptions,
       options.all,
+      true,
       options.dry_run,
     );
     console.log('Result', res);
