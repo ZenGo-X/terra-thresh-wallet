@@ -120,6 +120,7 @@ program
   )
   .option('-n, --network [name]', 'Name of network ("soju" or "columbus_3")')
   .option('-dr, --dry_run', 'Print the tx without posting it')
+  .option('-sa, --send_async', 'Send tx asynchronously, deafult = false')
   .option('-all, --all', 'Transfer all the coins of the specified currency')
   .action(async (from, to, amount, options) => {
     await client.init(options.network);
@@ -134,7 +135,7 @@ program
       options.denom || 'uluna',
       sendOptions,
       options.all,
-      true,
+      !options.send_async,
       options.dry_run,
     );
     console.log('Result', res);

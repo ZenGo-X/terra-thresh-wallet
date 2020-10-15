@@ -11,10 +11,8 @@ import {
   ValAddress,
   MnemonicKey,
   LCDClient,
-  Wallet,
   MsgSend,
   MsgDelegate,
-  MsgSwap,
   StdSignature,
   StdTx,
   StdSignMsg,
@@ -23,6 +21,8 @@ import {
   Coins,
   Denom,
 } from '@terra-money/terra.js';
+
+type TxType = 'transfer' | 'delegate' | 'undelegate';
 
 import {
   EcdsaParty2 as Party2,
@@ -89,7 +89,8 @@ export class TerraThreshSigClient {
     return balance;
   }
 
-  private async createTransferTx(
+  private async createCustomTx(
+    txType: TxType,
     from: string,
     to: string,
     amount: string,
@@ -116,8 +117,10 @@ export class TerraThreshSigClient {
     let coins = new Coins([coin]);
 
     let gasPrices: GasPrices = await getGasPrices(this.chainName);
-
     let gasPrice = gasPrices[denom];
+
+    //let gasPrice = '0.015';
+
     console.log('GasPrice', gasPrice);
 
     let gasPriceCoin;
@@ -130,7 +133,16 @@ export class TerraThreshSigClient {
       throw 'Illegal denominator';
     }
 
-    let send = new MsgSend(from, to, coins);
+    let send;
+    if (txType == 'transfer') {
+      send = new MsgSend(from, to, coins);
+    } else if (txType == 'delegate') {
+      send = new MsgDelegate(from, to, coin);
+    } else if (txType == 'undelegate') {
+      send = new MsgUndelegate(from, to, coin);
+    } else {
+      throw new Error('Unknows tx type');
+    }
 
     // Create tx
     // This also estimates the initial fees
@@ -193,38 +205,7 @@ export class TerraThreshSigClient {
     return tx;
   }
 
-  /**
-   * Transfer tokens to address
-   * @param to  address to send tokens to
-   * @param amount Amount of tokens to send in u<Token>  == <Token> * 1e6
-   * @param denom Denomination of tokens to use. One of uluna, uusd, ukrw etc.
-   * @param options Optional memo and different gas fees
-   * @param sendAll Use special logic to send all tokens of specified denom
-   * @param dryRun Create trasnsaction but do not broadcast
-   */
-  public async transfer(
-    from: string,
-    to: string,
-    amount: string,
-    denom: Denom,
-    options?: SendOptions,
-    sendAll?: boolean,
-    syncSend?: boolean,
-    dryRun?: boolean,
-  ): Promise<any> {
-    // Validate to address
-    assert(AccAddress.validate(to), 'To address is invalid');
-    ////////////////////// Siging and broadcasting is split into steps ////////////////
-    // Step 1: creating the trasnsaction (done)
-    const tx = await this.createTransferTx(
-      from,
-      to,
-      amount,
-      denom,
-      options,
-      sendAll,
-    );
-
+  private async getShareAndSign(from: string, tx: StdSignMsg): Promise<StdTx> {
     // Get relevant from address index (for sign and public key)
     const addressObj: any = this.db
       .get('addresses')
@@ -250,14 +231,55 @@ export class TerraThreshSigClient {
     });
 
     // Create message object
-    const stdTx = new StdTx(tx.msgs, tx.fee, [stdSig], tx.memo);
+    return new StdTx(tx.msgs, tx.fee, [stdSig], tx.memo);
+  }
+
+  /**
+   * Transfer tokens to address
+   * @param to  address to send tokens to
+   * @param amount Amount of tokens to send in u<Token>  == <Token> * 1e6
+   * @param denom Denomination of tokens to use. One of uluna, uusd, ukrw etc.
+   * @param options Optional memo and different gas fees
+   * @param sendAll Use special logic to send all tokens of specified denom
+   * @param dryRun Create trasnsaction but do not broadcast
+   */
+  public async transfer(
+    from: string,
+    to: string,
+    amount: string,
+    denom: Denom,
+    options?: SendOptions,
+    sendAll?: boolean,
+    syncSend?: boolean,
+    dryRun?: boolean,
+  ): Promise<any> {
+    // Validate to address
+    assert(AccAddress.validate(to), 'To address is invalid');
+    ////////////////////// Siging and broadcasting is split into steps ////////////////
+    // Step 1: creating the trasnsaction (done)
+    const tx = await this.createCustomTx(
+      'transfer',
+      from,
+      to,
+      amount,
+      denom,
+      options,
+      sendAll,
+    );
+    console.log('TX', tx.toJSON());
+
+    // Step 2: Signing the message
+    // Sign the raw tx data
+    const stdTx = await this.getShareAndSign(from, tx);
 
     // Step 3: Broadcasting the message
     if (dryRun) {
       console.log('------ Dry Run ----- ');
       console.log(tx.toJSON());
+      console.log(stdTx.toJSON());
     } else {
       console.log(' ===== Executing ===== ');
+      console.log(tx.toJSON());
       console.log(stdTx.toJSON());
       let resp;
       console.log('SyncSend', syncSend);
@@ -292,67 +314,20 @@ export class TerraThreshSigClient {
     // Validate to address
     assert(ValAddress.validate(to), 'To address is invalid');
 
-    // Optionally add a memo the transaction
-    await this.checkEnoughBalance(from, amount, denom);
-
-    // Set default denom to uluna
-    if (denom == null) {
-      denom = 'uluna';
-    }
-
-    // Coins for amount
-    let coin = new Coin(denom, amount);
-
-    //let gasPrices: GasPrices = await getGasPrices(this.chainName);
-
-    //let gasPrice = gasPrices[denom];
-    //console.log('GasPrice', gasPrice);
-
-    //let gasPriceCoin;
-    //let gasPriceCoins;
-
-    //if (gasPrice) {
-    //  gasPriceCoin = new Coin(denom, gasPrice);
-    //  gasPriceCoins = new Coins([gasPriceCoin]);
-    //} else {
-    //  throw 'Illegal denominator';
-    //}
-
-    let send = new MsgUndelegate(from, to, coin);
-
-    // Create tx
-    // This also estimates the initial fees
-    let tx = await this.lcd.tx.create(from, {
-      msgs: [send],
-      //gasPrices: gasPriceCoins,
-    });
-
-    // Get relevant from address index (for sign and public key)
-    const addressObj: any = this.db
-      .get('addresses')
-      .find({ accAddress: from })
-      .value();
-
-    const addressIndex: number = addressObj.index;
+    const tx = await this.createCustomTx(
+      'undelegate',
+      from,
+      to,
+      amount,
+      denom,
+      options,
+      sendAll,
+    );
+    console.log('TX', tx.toJSON());
 
     // Step 2: Signing the message
     // Sign the raw tx data
-    let sigData = await this.sign(addressIndex, Buffer.from(tx.toJSON()));
-
-    let pubKey = this.getPublicKeyBuffer(addressIndex).toString('base64');
-
-    // Step 3: Inject signature to messate
-    // Createa a sig+public key object
-    let stdSig = StdSignature.fromData({
-      signature: sigData.toString('base64'),
-      pub_key: {
-        type: 'tendermint/PubKeySecp256k1',
-        value: pubKey,
-      },
-    });
-
-    // Create message object
-    const stdTx = new StdTx(tx.msgs, tx.fee, [stdSig], tx.memo);
+    const stdTx = await this.getShareAndSign(from, tx);
 
     // Step 3: Broadcasting the message
     if (dryRun) {
@@ -394,67 +369,20 @@ export class TerraThreshSigClient {
     // Validate to address
     assert(ValAddress.validate(to), 'To address is invalid');
 
-    // Optionally add a memo the transaction
-    await this.checkEnoughBalance(from, amount, denom);
-
-    // Set default denom to uluna
-    if (denom == null) {
-      denom = 'uluna';
-    }
-
-    // Coins for amount
-    let coin = new Coin(denom, amount);
-
-    let gasPrices: GasPrices = await getGasPrices(this.chainName);
-
-    let gasPrice = gasPrices[denom];
-    console.log('GasPrice', gasPrice);
-
-    let gasPriceCoin;
-    let gasPriceCoins;
-
-    if (gasPrice) {
-      gasPriceCoin = new Coin(denom, gasPrice);
-      gasPriceCoins = new Coins([gasPriceCoin]);
-    } else {
-      throw 'Illegal denominator';
-    }
-
-    let send = new MsgDelegate(from, to, coin);
-
-    // Create tx
-    // This also estimates the initial fees
-    let tx = await this.lcd.tx.create(from, {
-      msgs: [send],
-      gasPrices: gasPriceCoins,
-    });
-
-    // Get relevant from address index (for sign and public key)
-    const addressObj: any = this.db
-      .get('addresses')
-      .find({ accAddress: from })
-      .value();
-
-    const addressIndex: number = addressObj.index;
+    const tx = await this.createCustomTx(
+      'delegate',
+      from,
+      to,
+      amount,
+      denom,
+      options,
+      sendAll,
+    );
+    console.log('TX', tx.toJSON());
 
     // Step 2: Signing the message
     // Sign the raw tx data
-    let sigData = await this.sign(addressIndex, Buffer.from(tx.toJSON()));
-
-    let pubKey = this.getPublicKeyBuffer(addressIndex).toString('base64');
-
-    // Step 3: Inject signature to messate
-    // Createa a sig+public key object
-    let stdSig = StdSignature.fromData({
-      signature: sigData.toString('base64'),
-      pub_key: {
-        type: 'tendermint/PubKeySecp256k1',
-        value: pubKey,
-      },
-    });
-
-    // Create message object
-    const stdTx = new StdTx(tx.msgs, tx.fee, [stdSig], tx.memo);
+    const stdTx = await this.getShareAndSign(from, tx);
 
     // Step 3: Broadcasting the message
     if (dryRun) {
@@ -482,35 +410,20 @@ export class TerraThreshSigClient {
     this.initDb();
     this.initMasterKey();
 
-    let chainID;
     if (chainName == null) {
       chainName = 'tequila';
     }
     this.chainName = chainName;
 
     let URL = Chains[chainName];
-    // This is the right way to do it, removed for getting 502 error
-    // let chainID = await getChainID(chainName);
-    if (chainName === 'tequila') {
-      chainID = 'tequila-0004';
-    } else if (chainName === 'columbus') {
-      chainID = 'columbus-4';
-    } else if (chainName === 'soju') {
-      chainID = 'soju-0014';
-    } else {
-      chainID = 'tequila-0004';
-    }
-    console.log('URL', URL);
+    let chainID = await getChainID(chainName);
+    //console.log('URL', URL);
     console.log('chainID', chainID);
 
     // The LCD clients must be initiated with a node and chain_id
     this.lcd = new LCDClient({
-      //URL: 'https://tequila-lcd.terra.dev', // public node soju
-      //chainID: 'tequila-0001',
       URL,
       chainID,
-      // Only for tequila
-      gasPrices: '0.015uluna',
     });
   }
 
