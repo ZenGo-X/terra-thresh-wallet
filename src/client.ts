@@ -9,10 +9,12 @@ import {
   AccAddress,
   MsgUndelegate,
   ValAddress,
+  CreateTxOptions,
   MnemonicKey,
   LCDClient,
   MsgSend,
   MsgDelegate,
+  MsgWithdrawDelegationReward,
   StdSignature,
   StdTx,
   StdSignMsg,
@@ -22,7 +24,7 @@ import {
   Denom,
 } from '@terra-money/terra.js';
 
-type TxType = 'transfer' | 'delegate' | 'undelegate';
+type TxType = 'transfer' | 'delegate' | 'undelegate' | 'rewards';
 
 import {
   EcdsaParty2 as Party2,
@@ -60,15 +62,17 @@ export class TerraThreshSigClient {
     return this.lcd.bank.balance(address);
   }
 
+  public async getPendingRewards(delegator: string) {
+    return this.lcd.distribution.rewards(delegator);
+  }
+
   public async getValidatorInfo(validator: string) {
-    let res = await this.lcd.staking.validator(validator);
-    console.log(res);
+    return await this.lcd.staking.validator(validator);
   }
 
   public async getDelegations(delegator: string) {
     console.log(delegator);
-    let res = await this.lcd.staking.delegations(delegator, undefined);
-    console.log(res);
+    return this.lcd.staking.delegations(delegator, undefined);
   }
 
   /**
@@ -140,6 +144,8 @@ export class TerraThreshSigClient {
       send = new MsgDelegate(from, to, coin);
     } else if (txType == 'undelegate') {
       send = new MsgUndelegate(from, to, coin);
+    } else if (txType == 'rewards') {
+      send = new MsgWithdrawDelegationReward(from, to);
     } else {
       throw new Error('Unknows tx type');
     }
@@ -150,6 +156,7 @@ export class TerraThreshSigClient {
       msgs: [send],
       gasPrices: gasPriceCoins,
     });
+    console.log('Tx', tx);
 
     // Extract estimated fee
     let fee = tx.fee;
@@ -271,6 +278,53 @@ export class TerraThreshSigClient {
     // Step 2: Signing the message
     // Sign the raw tx data
     const stdTx = await this.getShareAndSign(from, tx);
+
+    // Step 3: Broadcasting the message
+    if (dryRun) {
+      console.log('------ Dry Run ----- ');
+      console.log(tx.toJSON());
+      console.log(stdTx.toJSON());
+    } else {
+      console.log(' ===== Executing ===== ');
+      console.log(tx.toJSON());
+      console.log(stdTx.toJSON());
+      let resp;
+      console.log('SyncSend', syncSend);
+      if (syncSend) {
+        resp = await this.lcd.tx.broadcast(stdTx);
+      } else {
+        resp = await this.lcd.tx.broadcastSync(stdTx);
+      }
+      return resp;
+    }
+  }
+
+  public async collectRewards(
+    delegator: string,
+    validator: string,
+    options?: SendOptions,
+    sendAll?: boolean,
+    syncSend?: boolean,
+    dryRun?: boolean,
+  ): Promise<any> {
+    // Validate to address
+    assert(ValAddress.validate(validator), 'To address is invalid');
+    ////////////////////// Siging and broadcasting is split into steps ////////////////
+    // Step 1: creating the trasnsaction (done)
+    const tx = await this.createCustomTx(
+      'rewards',
+      delegator,
+      validator,
+      '0',
+      'uluna',
+      options,
+      sendAll,
+    );
+    console.log('TX', tx.toJSON());
+
+    // Step 2: Signing the message
+    // Sign the raw tx data
+    const stdTx = await this.getShareAndSign(delegator, tx);
 
     // Step 3: Broadcasting the message
     if (dryRun) {

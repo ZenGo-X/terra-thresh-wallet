@@ -46,6 +46,20 @@ program
   });
 
 program
+  .command('pending_rewards <address>')
+  .option('-n, --network [name]', 'Name of network ("soju", "columbus_3")')
+  .action(async (address, options) => {
+    await client.init(options.network);
+    console.log(
+      JSON.stringify(
+        await client.getPendingRewards(address, options.network || 'tequila'),
+        null,
+        2,
+      ),
+    );
+  });
+
+program
   .command('validator_stats <address>')
   .option(
     '-n, --network [name]',
@@ -133,6 +147,33 @@ program
       to,
       amount,
       options.denom || 'uluna',
+      sendOptions,
+      options.all,
+      !options.send_async,
+      options.dry_run,
+    );
+    console.log('Result', res);
+  });
+
+program
+  .command('collect_rewards <delegator> <validator> ')
+  .option(
+    '-d, --denom [symbol]',
+    'denomination of the transfer ("luna" default, "usd", ...)',
+  )
+  .option('-n, --network [name]', 'Name of network ("soju" or "columbus_3")')
+  .option('-dr, --dry_run', 'Print the tx without posting it')
+  .option('-sa, --send_async', 'Send tx asynchronously, deafult = false')
+  .option('-all, --all', 'Transfer all the coins of the specified currency')
+  .action(async (delegator, validator, options) => {
+    await client.init(options.network);
+    let sendOptions = {
+      memo: options.memo,
+      chainName: options.network,
+    };
+    let res = await client.collectRewards(
+      delegator,
+      validator,
       sendOptions,
       options.all,
       !options.send_async,
