@@ -211,6 +211,33 @@ program
   });
 
 program
+  .command('redelegate <from> <validator_src> <validator_dst> <amount>')
+  .option(
+    '-d, --denom [symbol]',
+    'denomination of the transfer ("luna" default, "usd", ...)',
+  )
+  .option('-n, --network [name]', 'Name of network ("soju" or "columbus_3")')
+  .option('-dr, --dry_run', 'Print the tx without posting it')
+  .option('-all, --all', 'Transfer all the coins of the specified currency')
+  .action(async (from, validator_src, validator_dst, amount, options) => {
+    await client.init(options.network);
+    let sendOptions = {
+      memo: options.memo,
+      chainName: options.network,
+    };
+    let res = await client.redelegate(
+      from,
+      validator_src,
+      validator_dst,
+      amount,
+      options.denom || 'uluna',
+      false,
+      options.dry_run,
+    );
+    console.log('Result', res);
+  });
+
+program
   .command('undelegate <from> <to> <amount>')
   .option(
     '-d, --denom [symbol]',

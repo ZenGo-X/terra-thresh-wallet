@@ -15,6 +15,7 @@ import {
   MsgSend,
   MsgDelegate,
   MsgWithdrawDelegationReward,
+  MsgBeginRedelegate,
   StdSignature,
   StdTx,
   StdSignMsg,
@@ -378,6 +379,75 @@ export class TerraThreshSigClient {
       sendAll,
     );
     console.log('TX', tx.toJSON());
+
+    // Step 2: Signing the message
+    // Sign the raw tx data
+    const stdTx = await this.getShareAndSign(from, tx);
+
+    // Step 3: Broadcasting the message
+    if (dryRun) {
+      console.log('------ Dry Run ----- ');
+      console.log(stdTx.toJSON());
+    } else {
+      console.log(' ===== Executing ===== ');
+      console.log(stdTx.toJSON());
+      let resp;
+      console.log('SyncSend', syncSend);
+      if (syncSend) {
+        resp = await this.lcd.tx.broadcast(stdTx);
+      } else {
+        resp = await this.lcd.tx.broadcastSync(stdTx);
+      }
+      return resp;
+    }
+  }
+
+  public async redelegate(
+    from: string,
+    validator_src: string,
+    validator_dst: string,
+    amount: string,
+    denom: Denom,
+    syncSend?: boolean,
+    dryRun?: boolean,
+  ): Promise<any> {
+    // Validate to address
+    assert(
+      ValAddress.validate(validator_src),
+      'src validator address is invalid',
+    );
+    assert(
+      ValAddress.validate(validator_dst),
+      'dst validator address is invalid',
+    );
+
+    // Coins for amount
+    console.log(amount);
+    console.log(denom);
+    let coin = new Coin(denom, amount);
+
+    let gasPrices: GasPrices = await getGasPrices(this.chainName);
+    let gasPrice = gasPrices[denom];
+
+    let gasPriceCoin;
+    let gasPriceCoins;
+
+    if (gasPrice) {
+      gasPriceCoin = new Coin(denom, gasPrice);
+      gasPriceCoins = new Coins([gasPriceCoin]);
+    } else {
+      throw 'Illegal denominator';
+    }
+
+    let send = new MsgBeginRedelegate(from, validator_src, validator_dst, coin);
+
+    // Create tx
+    // This also estimates the initial fees
+    let tx = await this.lcd.tx.create(from, {
+      msgs: [send],
+      gasPrices: gasPriceCoins,
+    });
+    console.log('Tx', tx);
 
     // Step 2: Signing the message
     // Sign the raw tx data
