@@ -76,6 +76,11 @@ export class TerraThreshSigClient {
     return this.lcd.staking.delegations(delegator, undefined);
   }
 
+  public async getUndelegations(delegator: string) {
+    console.log(delegator);
+    return this.lcd.staking.unbondingDelegations(delegator, undefined);
+  }
+
   /**
    * Checks that the account has at least as much balance as requested by transaction
    * Returns balance in Coins for future use
