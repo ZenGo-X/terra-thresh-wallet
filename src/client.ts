@@ -81,6 +81,26 @@ export class TerraThreshSigClient {
     return this.lcd.staking.unbondingDelegations(delegator, undefined);
   }
 
+  public async getRedelegations(delegator: string) {
+    console.log(delegator);
+    return this.lcd.staking.redelegations(delegator, undefined);
+  }
+
+  public async getGlobalAPR() {
+    // This needs some work. Curretly get APR from validators endpoint
+    let pool = await this.lcd.staking.pool();
+    console.log(pool);
+    let bondedTokens = pool.bonded_tokens.amount; // bonded LUNA tokens
+    console.log(bondedTokens);
+
+    let supply = await this.lcd.supply.total();
+    let lunaSupply = supply.get(Denom.LUNA)?.amount;
+    console.log(lunaSupply);
+
+    let inflation = await this.lcd.mint.inflation();
+    console.log('Inflation', inflation);
+  }
+
   /**
    * Checks that the account has at least as much balance as requested by transaction
    * Returns balance in Coins for future use

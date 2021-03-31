@@ -10,6 +10,7 @@ const {
   getTransactions,
   getTxInfo,
   getSwapRates,
+  getValidators,
   getChainID,
   addressGenerator,
   getValidatorInfo,
@@ -91,23 +92,27 @@ program
   .action(async (address, options) => {
     await client.init(options.network);
     console.log(
-      await client.getUndelegations(address, options.network || 'tequila'),
+      JSON.stringify(
+        await client.getUndelegations(address, options.network || 'tequila'),
+      ),
+      null,
+      2,
     );
   });
 
 program
-  .command('rates')
+  .command('redelegations <address>')
   .option(
-    '-d, --denom [symbol]',
-    'denomination of the transfer ("uluna" default, "uusd", ...)',
+    '-n, --network [name]',
+    'Name of network ("tequila", "columbus", "tequila")',
   )
-  .option('-n, --network [name]', 'Name of network ("tequila" or "columbus")')
-  .action(async (options) => {
+  .action(async (address, options) => {
     await client.init(options.network);
     console.log(
-      await getSwapRates(
-        options.denom || 'uluna',
-        options.network || 'tequila',
+      JSON.stringify(
+        await client.getRedelegations(address, options.network || 'tequila'),
+        null,
+        2,
       ),
     );
   });
@@ -304,6 +309,38 @@ program
       options.dry_run,
     );
     console.log('Result', res);
+  });
+
+program
+  .command('apr')
+  .option('-n, --network [name]', 'Name of network ("tequila" or "columbus")')
+  .action(async (options) => {
+    await client.init(options.network);
+    console.log(await client.getGlobalAPR());
+  });
+
+program
+  .command('validators')
+  .option('-n, --network [name]', 'Name of network ("tequila" or "columbus")')
+  .action(async (options) => {
+    console.log(await getValidators(options.network || 'tequila'));
+  });
+
+program
+  .command('rates')
+  .option(
+    '-d, --denom [symbol]',
+    'denomination of the transfer ("uluna" default, "uusd", ...)',
+  )
+  .option('-n, --network [name]', 'Name of network ("tequila" or "columbus")')
+  .action(async (options) => {
+    await client.init(options.network);
+    console.log(
+      await getSwapRates(
+        options.denom || 'uluna',
+        options.network || 'tequila',
+      ),
+    );
   });
 
 program.parse(process.argv);

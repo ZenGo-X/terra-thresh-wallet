@@ -14,6 +14,10 @@ export async function getSwapRates(
   return get(chainName, `/v1/market/swaprate/${denom}`);
 }
 
+export async function getValidators(chainName: ChainName): Promise<any> {
+  return get(chainName, `/v1/staking/validators`);
+}
+
 interface GetTransactionsOptions {
   account?: string;
   receiver?: string;
